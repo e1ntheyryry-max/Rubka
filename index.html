@@ -1,0 +1,3207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="theme-color" content="#FFF6EE" />
+  <title>Аква-Уют & Трэш-Риф — VK Mini App (iPhone Edition)</title>
+  <!-- Official VK Bridge SDK (loads when online inside VK App; safe fallback when offline) -->
+  <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js" async onload="initVKBridge()" onerror="initVKFallback()"></script>
+  <style>
+    :root {
+      --bg-cream: #FFF9F3;
+      --bg-peach: #FFEFE2;
+      --card-bg: rgba(255, 255, 255, 0.92);
+      --card-border: #F2DFCE;
+      --text-main: #463A52;
+      --text-soft: #7E728A;
+      --accent-coral: #FF856D;
+      --accent-pink: #FF789E;
+      --accent-mint: #58C9B0;
+      --accent-lavender: #AC8EFF;
+      --accent-vk: #0077FF;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .chaos-theme {
+      --bg-cream: #1A102E;
+      --bg-peach: #2B134B;
+      --card-bg: rgba(34, 20, 62, 0.92);
+      --card-border: #6D32B8;
+      --text-main: #FFF5FF;
+      --text-soft: #D0B3FF;
+      --accent-coral: #FF2E93;
+      --accent-pink: #00F5D4;
+      --accent-mint: #FEE440;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Rounded', 'Nunito', 'Segoe UI', Roboto, sans-serif;
+      background: radial-gradient(circle at 50% 20%, #FFFDF9 0%, #F3E2D3 100%);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.4s ease;
+    }
+
+    body.chaos-body {
+      background: radial-gradient(circle at 50% 20%, #2D124D 0%, #0F071E 100%);
+    }
+
+    .app-outer-stage {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .desktop-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      z-index: 30;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .desktop-pill {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1.5px solid #E8D3C0;
+      color: #463A52;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(70, 58, 82, 0.08);
+      transition: all 0.18s ease;
+    }
+
+    .desktop-pill.vk-pill {
+      background: #0077FF;
+      color: #FFFFFF;
+      border-color: #0077FF;
+    }
+
+    .iphone-shell {
+      width: 420px;
+      height: min(880px, 93vh);
+      background: linear-gradient(180deg, var(--bg-cream) 0%, var(--bg-peach) 100%);
+      border-radius: 48px;
+      border: 10px solid #352D3F;
+      box-shadow:
+        0 24px 60px rgba(30, 20, 45, 0.32),
+        0 0 0 3px #E6D2C0;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+    }
+
+    .iphone-shell.chaos-theme {
+      border-color: #24113E;
+      box-shadow:
+        0 24px 70px rgba(255, 46, 147, 0.35),
+        0 0 0 3px #9B5DE5;
+    }
+
+    .iphone-shell.fullscreen-mode {
+      width: 100vw;
+      height: 100dvh;
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
+    }
+
+    @media (max-width: 520px) {
+      .desktop-toolbar {
+        display: none;
+      }
+      .iphone-shell {
+        width: 100vw;
+        height: 100dvh;
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+      }
+      .dynamic-island {
+        display: none !important;
+      }
+    }
+
+    @keyframes chaosShake {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      20% { transform: translate(-4px, 3px) rotate(-0.6deg); }
+      40% { transform: translate(4px, -3px) rotate(0.6deg); }
+      60% { transform: translate(-3px, -2px) rotate(-0.4deg); }
+      80% { transform: translate(3px, 2px) rotate(0.4deg); }
+    }
+
+    .shake-active {
+      animation: chaosShake 0.38s ease-in-out;
+    }
+
+    /* VK Mini Apps Top Bar Simulation & Safe Clearance */
+    .vk-mini-app-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: calc(6px + var(--safe-top)) 12px 4px 12px;
+      background: var(--card-bg);
+      z-index: 25;
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+
+    .vk-user-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 119, 255, 0.1);
+      color: #0077FF;
+      padding: 3px 9px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    .chaos-theme .vk-user-badge {
+      background: rgba(0, 245, 212, 0.15);
+      color: #00F5D4;
+    }
+
+    /* Native VK iOS top-right capsule (••• | ✕) clearance */
+    .vk-capsule-mock {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(126, 114, 138, 0.14);
+      border: 1px solid var(--card-border);
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      color: var(--text-soft);
+      cursor: pointer;
+    }
+
+    /* Header & Mode Switcher */
+    .ios-header {
+      padding: 4px 12px 7px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1.5px solid var(--card-border);
+      z-index: 20;
+      flex-shrink: 0;
+    }
+
+    .mode-switcher-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: rgba(126, 114, 138, 0.14);
+      padding: 3px;
+      border-radius: 14px;
+      gap: 4px;
+      border: 1.5px solid var(--card-border);
+    }
+
+    .mood-switch-btn {
+      border: none;
+      border-radius: 11px;
+      padding: 6px 8px;
+      font-size: 0.73rem;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.22s ease;
+      background: transparent;
+      color: var(--text-soft);
+    }
+
+    .mood-switch-btn.cozy-active {
+      background: linear-gradient(135deg, #FF9478, #FF759F);
+      color: #FFFFFF;
+      box-shadow: 0 3px 10px rgba(255, 117, 159, 0.35);
+    }
+
+    .mood-switch-btn.chaos-active {
+      background: linear-gradient(135deg, #FF007F, #7928CA, #00F5D4);
+      color: #FFFFFF;
+      box-shadow: 0 3px 14px rgba(255, 0, 127, 0.5);
+    }
+
+    .ios-header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hud-stats-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex: 1;
+    }
+
+    .hud-stat {
+      background: rgba(255, 255, 255, 0.16);
+      border: 1.5px solid var(--card-border);
+      border-radius: 10px;
+      padding: 3px 7px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--text-main);
+      transition: transform 0.2s ease;
+    }
+
+    .hud-stat.pulse {
+      transform: scale(1.12);
+      border-color: var(--accent-pink);
+    }
+
+    .quick-top-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .icon-btn {
+      width: 29px;
+      height: 29px;
+      border-radius: 50%;
+      border: 1.5px solid var(--card-border);
+      background: rgba(255, 255, 255, 0.2);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.84rem;
+      cursor: pointer;
+    }
+
+    .icon-btn.vk-btn {
+      background: #0077FF;
+      color: #FFFFFF;
+      border-color: #0077FF;
+      font-weight: 900;
+      font-size: 0.68rem;
+    }
+
+    /* Center Portrait Aquarium Area */
+    .aquarium-stage {
+      position: relative;
+      flex: 1;
+      margin: 5px 10px 5px 10px;
+      border-radius: 24px;
+      padding: 5px;
+      background: linear-gradient(180deg, #FFFFFF 0%, #F4E3D3 100%);
+      border: 2.5px solid var(--card-border);
+      box-shadow:
+        0 8px 22px rgba(70, 58, 82, 0.10),
+        inset 0 2px 4px rgba(255, 255, 255, 0.9);
+      display: flex;
+      flex-direction: column;
+      min-height: 220px;
+      overflow: hidden;
+    }
+
+    .chaos-theme .aquarium-stage {
+      background: linear-gradient(180deg, #3A1068 0%, #15072B 100%);
+      border-color: #00F5D4;
+      box-shadow: 0 0 22px rgba(0, 245, 212, 0.28);
+    }
+
+    .canvas-wrap {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      border-radius: 19px;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    canvas#aquariumCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    .tank-top-pill {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.86);
+      backdrop-filter: blur(8px);
+      border: 1.5px solid #FFD6E5;
+      padding: 4px 11px;
+      border-radius: 999px;
+      font-size: 0.69rem;
+      font-weight: 800;
+      color: #D44D7A;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      z-index: 8;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .chaos-theme .tank-top-pill {
+      background: rgba(26, 12, 48, 0.88);
+      border-color: #FEE440;
+      color: #FEE440;
+    }
+
+    .event-toast {
+      position: absolute;
+      top: 36px;
+      left: 10px;
+      right: 10px;
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px solid #FF9EBB;
+      padding: 6px 11px;
+      border-radius: 14px;
+      box-shadow: 0 8px 20px rgba(45, 30, 60, 0.18);
+      font-size: 0.73rem;
+      font-weight: 800;
+      color: #3A2E47;
+      text-align: center;
+      opacity: 0;
+      transform: translateY(-12px) scale(0.96);
+      pointer-events: none;
+      transition: all 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: 16;
+    }
+
+    .chaos-theme .event-toast {
+      background: rgba(28, 12, 54, 0.96);
+      border-color: #00F5D4;
+      color: #FFF5FF;
+    }
+
+    .event-toast.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .floating-sub-bar {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      right: 8px;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1.5px solid var(--card-border);
+      padding: 4px;
+      border-radius: 14px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      z-index: 12;
+      flex-wrap: wrap;
+    }
+
+    .chaos-theme .floating-sub-bar {
+      background: rgba(28, 14, 54, 0.92);
+    }
+
+    .floating-sub-bar.visible {
+      display: flex;
+    }
+
+    .sub-pill-btn {
+      border: none;
+      background: transparent;
+      padding: 5px 8px;
+      border-radius: 10px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: var(--text-soft);
+      cursor: pointer;
+    }
+
+    .sub-pill-btn.active {
+      background: linear-gradient(135deg, #FF8E72, #FF758F);
+      color: #FFFFFF;
+    }
+
+    .chaos-theme .sub-pill-btn.active {
+      background: linear-gradient(135deg, #FF007F, #7928CA);
+      color: #FEE440;
+    }
+
+    /* Fish Strip Card */
+    .fish-strip-card {
+      margin: 0 10px 5px 10px;
+      background: var(--card-bg);
+      border: 1.5px solid var(--card-border);
+      border-radius: 18px;
+      padding: 7px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+
+    .fish-avatars-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .fish-avatars-row::-webkit-scrollbar {
+      display: none;
+    }
+
+    .fish-chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1.5px solid var(--card-border);
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text-main);
+      font-size: 0.71rem;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .fish-chip.selected {
+      background: var(--accent-coral);
+      border-color: var(--accent-coral);
+      color: #FFFFFF;
+    }
+
+    .fish-chip .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .selected-fish-details {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .fish-info-left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .fish-title-line {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.77rem;
+      font-weight: 800;
+      flex-wrap: wrap;
+    }
+
+    .stage-pill {
+      font-size: 0.62rem;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: rgba(88, 201, 176, 0.2);
+      color: var(--accent-mint);
+      font-weight: 800;
+    }
+
+    .behavior-badge {
+      font-size: 0.61rem;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: rgba(172, 142, 255, 0.2);
+      color: var(--accent-lavender);
+      font-weight: 800;
+    }
+
+    .fish-thought-line {
+      font-size: 0.69rem;
+      color: var(--text-soft);
+      font-style: italic;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    .mini-bars-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 3px;
+    }
+
+    .mini-bar-item {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.62rem;
+      font-weight: 800;
+      color: var(--text-soft);
+    }
+
+    .mini-track {
+      flex: 1;
+      height: 5px;
+      background: rgba(126, 114, 138, 0.2);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .mini-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+
+    .fish-quick-btns {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .mini-action-btn {
+      border: 1.5px solid var(--card-border);
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 11px;
+      padding: 5px 7px;
+      font-size: 0.67rem;
+      font-weight: 800;
+      color: var(--text-main);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+    }
+
+    /* Bottom iOS Tab Dock */
+    .ios-bottom-dock {
+      padding: 5px 8px calc(8px + var(--safe-bottom)) 8px;
+      background: var(--card-bg);
+      backdrop-filter: blur(14px);
+      border-top: 1.5px solid var(--card-border);
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+      flex-shrink: 0;
+      z-index: 25;
+    }
+
+    .dock-item {
+      border: none;
+      background: transparent;
+      padding: 5px 2px;
+      border-radius: 13px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      color: var(--text-soft);
+      font-size: 0.63rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .dock-item .dock-icon {
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    .dock-item.active {
+      background: rgba(255, 133, 109, 0.18);
+      color: var(--accent-coral);
+    }
+
+    /* Slide-Up iOS Bottom Sheet */
+    .ios-sheet-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(26, 18, 38, 0.48);
+      backdrop-filter: blur(4px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.24s ease;
+      z-index: 40;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+
+    .ios-sheet-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .ios-sheet {
+      background: var(--bg-cream);
+      color: var(--text-main);
+      border-top: 2px solid var(--card-border);
+      border-radius: 26px 26px 0 0;
+      padding: 10px 14px calc(16px + var(--safe-bottom)) 14px;
+      max-height: 80%;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      transform: translateY(100%);
+      transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      box-shadow: 0 -12px 35px rgba(20, 10, 35, 0.28);
+    }
+
+    .ios-sheet-backdrop.open .ios-sheet {
+      transform: translateY(0);
+    }
+
+    .sheet-handle {
+      width: 38px;
+      height: 5px;
+      background: rgba(126, 114, 138, 0.35);
+      border-radius: 999px;
+      margin: 0 auto 2px auto;
+    }
+
+    .sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1.5px dashed var(--card-border);
+      padding-bottom: 7px;
+    }
+
+    .sheet-header h2 {
+      margin: 0;
+      font-size: 0.92rem;
+      font-weight: 800;
+    }
+
+    .sheet-content {
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      padding-right: 2px;
+    }
+
+    .sheet-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .catalog-card {
+      background: var(--card-bg);
+      border: 1.5px solid var(--card-border);
+      border-radius: 14px;
+      padding: 9px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .catalog-card.placed {
+      border-color: var(--accent-mint);
+    }
+
+    .catalog-card-top {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .catalog-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      background: rgba(255, 133, 109, 0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      flex-shrink: 0;
+    }
+
+    .catalog-title {
+      font-size: 0.76rem;
+      font-weight: 800;
+      line-height: 1.15;
+    }
+
+    .catalog-desc {
+      font-size: 0.67rem;
+      color: var(--text-soft);
+      line-height: 1.25;
+    }
+
+    .catalog-btn {
+      width: 100%;
+      padding: 6px;
+      border-radius: 9px;
+      border: none;
+      font-weight: 800;
+      font-size: 0.71rem;
+      cursor: pointer;
+      background: var(--accent-coral);
+      color: #FFFFFF;
+    }
+
+    .catalog-btn.vk-action {
+      background: #0077FF;
+      color: #FFFFFF;
+    }
+
+    .catalog-btn.placed {
+      background: rgba(88, 201, 176, 0.22);
+      color: var(--accent-mint);
+    }
+
+    .combo-recipe-card {
+      background: var(--card-bg);
+      border: 1.5px solid var(--card-border);
+      border-radius: 14px;
+      padding: 9px 11px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .combo-recipe-card.discovered {
+      border-color: #FEE440;
+    }
+  </style>
+</head>
+<body id="bodyRoot">
+
+  <div class="app-outer-stage">
+    <!-- Desktop Preview Switcher -->
+    <div class="desktop-toolbar">
+      <button class="desktop-pill vk-pill" onclick="openSheet('vk')">
+        📱 Интеграция VK Mini Apps (<span id="vkToolbarStatus">Готово</span>)
+      </button>
+      <button class="desktop-pill" id="frameToggleBtn" onclick="togglePhoneFrame()">
+        📱 Рамка iPhone / Полный экран
+      </button>
+      <button class="desktop-pill" onclick="openSheet('combos')">
+        🔥 Лаборатория Трэш-Комбо (<span id="comboDiscoveredCount">0/4</span>)
+      </button>
+      <button class="desktop-pill" onclick="openSheet('settings')">
+        ⚙️ Настройки и Имена
+      </button>
+    </div>
+
+    <!-- iPhone Shell Container -->
+    <div class="iphone-shell" id="iphoneShell">
+      <!-- Top VK Mini App Bar (Simulates / Accommodates Native VK App Header on iOS) -->
+      <div class="vk-mini-app-bar">
+        <div class="vk-user-badge" onclick="openSheet('vk')" title="Открыть панель интеграции ВКонтакте">
+          <span>💙 VK Mini App</span>
+          <span>•</span>
+          <span id="vkUserNameLabel">Хранитель рифа</span>
+        </div>
+        <div class="vk-capsule-mock" onclick="openSheet('vk')" title="Кнопки управления мини-приложением ВК">
+          <span>•••</span>
+          <span>|</span>
+          <span>✕</span>
+        </div>
+      </div>
+
+      <!-- Top iOS Header with Explicit COZY / CHAOS Mode Switch -->
+      <header class="ios-header">
+        <div class="mode-switcher-bar">
+          <button class="mood-switch-btn cozy-active" id="btnCozyMode" onclick="switchGameMood('cozy')">
+            🌸 COZY MODE (Уют)
+          </button>
+          <button class="mood-switch-btn" id="btnChaosMode" onclick="switchGameMood('chaos')">
+            🔥 CHAOS MODE (Трэш)
+          </button>
+        </div>
+
+        <div class="ios-header-top">
+          <div class="hud-stats-row">
+            <div class="hud-stat" id="pearlStat">
+              <span>✨</span>
+              <span id="pearlCount">75</span>
+            </div>
+            <div class="hud-stat" id="heartStat">
+              <span>💖</span>
+              <span id="heartCount">30</span>
+            </div>
+            <div class="hud-stat" id="waterStat">
+              <span>💧</span>
+              <span id="waterClarityText">99%</span>
+            </div>
+          </div>
+
+          <div class="quick-top-actions">
+            <button class="icon-btn vk-btn" onclick="openSheet('vk')" title="Функции ВКонтакте: Истории, Друзья, Облако">VK</button>
+            <button class="icon-btn" id="lightBtn" onclick="cycleLighting()" title="Свет / Диско-строб">🌅</button>
+            <button class="icon-btn" id="soundBtn" onclick="toggleSound()" title="Звук Вкл/Выкл">🔊</button>
+            <button class="icon-btn" onclick="triggerMoodSurprise()" title="Событие текущего режима">🎁</button>
+            <button class="icon-btn" onclick="openSheet('settings')" title="Настройки и имена">⚙️</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Portrait Interactive Aquarium -->
+      <main class="aquarium-stage" id="aquariumStage">
+        <div class="canvas-wrap" id="canvasContainer">
+          <div class="tank-top-pill" id="tankTopPill" onclick="handleTopPillClick()">
+            <span id="tankTopPillText">💞 Дуэт: Никко & Виора • Вальс пары</span>
+          </div>
+
+          <div class="event-toast" id="eventToast">✨ Добро пожаловать в VK Mini App!</div>
+
+          <canvas id="aquariumCanvas"></canvas>
+
+          <div class="floating-sub-bar" id="floatingSubBar"></div>
+        </div>
+      </main>
+
+      <!-- Selected Fish Card with Autonomous Personality Behavior -->
+      <section class="fish-strip-card">
+        <div class="fish-avatars-row" id="fishChipsRow"></div>
+
+        <div class="selected-fish-details">
+          <div class="fish-info-left">
+            <div class="fish-title-line">
+              <span id="inspName">Никко</span>
+              <span class="stage-pill" id="inspStage">Подросток</span>
+              <span class="behavior-badge" id="inspBehavior">Охраняет Виору</span>
+            </div>
+            <div class="fish-thought-line" id="inspThought">
+              «Когда Виора плывёт рядом, даже пузырьки светятся~»
+            </div>
+            <div class="mini-bars-row">
+              <div class="mini-bar-item">
+                <span>🍪</span>
+                <div class="mini-track"><div class="mini-fill" id="inspHungerBar" style="width:85%;background:#FF9A62;"></div></div>
+              </div>
+              <div class="mini-bar-item">
+                <span>🌟</span>
+                <div class="mini-track"><div class="mini-fill" id="inspXpBar" style="width:55%;background:#52C7A9;"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="fish-quick-btns">
+            <button class="mini-action-btn" onclick="petSelectedFish()">
+              <span id="quickBtn1Icon">🤲</span>
+              <span id="quickBtn1Label">Ласка</span>
+            </button>
+            <button class="mini-action-btn" onclick="handleSpecialActionBtn()">
+              <span id="quickBtn2Icon">💞</span>
+              <span id="quickBtn2Label">Дуэт</span>
+            </button>
+            <button class="mini-action-btn" onclick="shareToVKStory()">
+              <span>📸</span>
+              <span>Сторис</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bottom iOS Navigation & Mode Dock -->
+      <nav class="ios-bottom-dock">
+        <button class="dock-item active" id="dockTool1" onclick="setInteractionMode('tool1')">
+          <span class="dock-icon" id="dock1Icon">👋</span>
+          <span id="dock1Label">Ласка</span>
+        </button>
+        <button class="dock-item" id="dockTool2" onclick="setInteractionMode('tool2')">
+          <span class="dock-icon" id="dock2Icon">🍪</span>
+          <span id="dock2Label">Кормить</span>
+        </button>
+        <button class="dock-item" id="dockTool3" onclick="setInteractionMode('tool3')">
+          <span class="dock-icon" id="dock3Icon">🫧</span>
+          <span id="dock3Label">Губка</span>
+        </button>
+        <button class="dock-item" id="dockDecor" onclick="openSheet('decor')">
+          <span class="dock-icon" id="dock4Icon">🐚</span>
+          <span id="dock4Label">Декор</span>
+        </button>
+        <button class="dock-item" id="dockAdopt" onclick="openSheet('adopt')">
+          <span class="dock-icon">🐠</span>
+          <span>Рыбки</span>
+        </button>
+      </nav>
+
+      <!-- Slide-Up iOS Sheet Modal -->
+      <div class="ios-sheet-backdrop" id="sheetBackdrop" onclick="if(event.target===this) closeSheet()">
+        <div class="ios-sheet">
+          <div class="sheet-handle"></div>
+          <div class="sheet-header">
+            <h2 id="sheetTitle">🐚 Меню</h2>
+            <button class="desktop-pill" onclick="closeSheet()">Готово</button>
+          </div>
+          <div class="sheet-content" id="sheetContent"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. VK MINI APPS BRIDGE INTEGRATION (@vkontakte/vk-bridge + Offline Mock)
+    // =========================================================================
+    let isInsideVK = false;
+    let vkUser = { id: 0, first_name: 'Хранитель', last_name: 'Рифа' };
+    let tapticEnabled = true;
+
+    function initVKBridge() {
+      if (window.vkBridge) {
+        window.vkBridge.send('VKWebAppInit')
+          .then(() => {
+            isInsideVK = true;
+            document.getElementById('vkToolbarStatus').textContent = 'Подключено к ВК 🟢';
+            syncVKViewSettings();
+            fetchVKUserProfile();
+            loadFromVKCloudStorage();
+          })
+          .catch(() => {
+            initVKFallback();
+          });
+      } else {
+        initVKFallback();
+      }
+    }
+
+    function initVKFallback() {
+      isInsideVK = false;
+      const el = document.getElementById('vkToolbarStatus');
+      if (el) el.textContent = 'Песочница / Готово к ВК 💙';
+    }
+
+    function syncVKViewSettings() {
+      if (!window.vkBridge) return;
+      const isChaos = (typeof gameMood !== 'undefined' && gameMood === 'chaos');
+      window.vkBridge.send('VKWebAppSetViewSettings', {
+        status_bar_style: isChaos ? 'light' : 'dark',
+        action_bar_color: isChaos ? '#1A102E' : '#FFF9F3'
+      }).catch(() => {});
+    }
+
+    function fetchVKUserProfile() {
+      if (!window.vkBridge) return;
+      window.vkBridge.send('VKWebAppGetUserInfo')
+        .then(data => {
+          if (data && data.first_name) {
+            vkUser = data;
+            document.getElementById('vkUserNameLabel').textContent = data.first_name;
+            showToast(`💙 Привет, ${data.first_name}! Никко и Виора рады видеть тебя в ВК!`);
+          }
+        })
+        .catch(() => {});
+    }
+
+    // iOS Taptic Engine Haptic Feedback via VK Bridge
+    function triggerVKTaptic(style = 'light') {
+      if (!tapticEnabled) return;
+      if (window.vkBridge) {
+        window.vkBridge.send('VKWebAppTapticImpactOccurred', { style }).catch(() => {});
+      } else if (navigator.vibrate) {
+        navigator.vibrate(style === 'heavy' ? 30 : 12);
+      }
+    }
+
+    // Export Current Aquarium Snapshot to VK Story (VKWebAppShowStoryBox)
+    function shareToVKStory() {
+      triggerVKTaptic('medium');
+      playSound('chime');
+      try {
+        const dataUrl = canvas.toDataURL('image/png');
+        if (window.vkBridge && isInsideVK) {
+          window.vkBridge.send('VKWebAppShowStoryBox', {
+            background_type: 'image',
+            blob: dataUrl,
+            locked: false
+          }).then(() => {
+            pearls += 15;
+            updateHUD('pearl');
+            saveGameProgress();
+            showToast('📸 История опубликована во ВКонтакте! Бонус +15 ✨');
+          }).catch(() => {
+            showToast('📸 Кадр аквариума подготовлен для Истории ВК!');
+          });
+        } else {
+          // In browser preview, give bonus and show confirmation
+          pearls += 15;
+          updateHUD('pearl');
+          saveGameProgress();
+          showToast('📸 Снимок аквариума с Никко и Виорой создан для Истории ВК (+15 ✨)!');
+        }
+      } catch (e) {
+        showToast('📸 Готово к отправке в Истории ВК!');
+      }
+    }
+
+    // Share Mini App Link with Friends in VK (VKWebAppShare)
+    function shareWithVKFriends() {
+      triggerVKTaptic('light');
+      if (window.vkBridge && isInsideVK) {
+        window.vkBridge.send('VKWebAppShare', {}).then(() => {
+          hearts += 5;
+          updateHUD('heart');
+          saveGameProgress();
+          showToast('💌 Вы поделились аквариумом с друзьями ВК (+5 💖)!');
+        }).catch(() => {});
+      } else {
+        hearts += 5;
+        updateHUD('heart');
+        saveGameProgress();
+        showToast('💌 Вызов VKWebAppShare: ссылка на аквариум готова к отправке друзьям (+5 💖)!');
+      }
+    }
+
+    // Add Mini App to VK Favorites (VKWebAppAddToFavorites)
+    function addToVKFavorites() {
+      triggerVKTaptic('light');
+      if (window.vkBridge && isInsideVK) {
+        window.vkBridge.send('VKWebAppAddToFavorites')
+          .then(() => showToast('⭐ Игра добавлена в Избранное ВКонтакте!'))
+          .catch(() => {});
+      } else {
+        showToast('⭐ Вызов VKWebAppAddToFavorites: игра добавлена в Избранное ВК!');
+      }
+    }
+
+    // Cloud Storage Sync via VKWebAppStorageSet / VKWebAppStorageGet
+    function saveToVKCloudStorage(jsonStr) {
+      if (window.vkBridge && isInsideVK) {
+        window.vkBridge.send('VKWebAppStorageSet', {
+          key: 'aqua_cozy_state',
+          value: jsonStr.slice(0, 4000)
+        }).catch(() => {});
+      }
+    }
+
+    function loadFromVKCloudStorage() {
+      if (!window.vkBridge || !isInsideVK) return;
+      window.vkBridge.send('VKWebAppStorageGet', { keys: ['aqua_cozy_state'] })
+        .then(data => {
+          if (data && Array.isArray(data.keys) && data.keys[0] && data.keys[0].value) {
+            applyLoadedStateJSON(data.keys[0].value);
+            renderFishStrip();
+            updateHUD();
+          }
+        })
+        .catch(() => {});
+    }
+
+    // =========================================================================
+    // 2. WEB AUDIO SYNTHESIZER (Cozy Chimes + Chaos Rave Bass & Bleeps)
+    // =========================================================================
+    let soundEnabled = true;
+    let sfxVolume = 0.8;
+    let screenShakeEnabled = true;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) audioCtx = new AudioContextClass();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSound(type) {
+      if (!soundEnabled || sfxVolume <= 0.01) return;
+      try {
+        initAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const vol = sfxVolume;
+
+        if (type === 'bubble') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          const baseFreq = 330 + Math.random() * 190;
+          osc.frequency.setValueAtTime(baseFreq, now);
+          osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.0, now + 0.1);
+          gain.gain.setValueAtTime(0.08 * vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.11);
+        } else if (type === 'chomp') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.exponentialRampToValueAtTime(840, now + 0.09);
+          gain.gain.setValueAtTime(0.09 * vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.1);
+        } else if (type === 'chime') {
+          const notes = [523.25, 659.25, 783.99, 1046.5];
+          notes.forEach((freq, idx) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+            gain.gain.setValueAtTime(0.07 * vol, now + idx * 0.06);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.3);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now + idx * 0.06);
+            osc.stop(now + idx * 0.06 + 0.32);
+          });
+        } else if (type === 'bass') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(150, now);
+          osc.frequency.exponentialRampToValueAtTime(48, now + 0.28);
+          gain.gain.setValueAtTime(0.14 * vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.31);
+        } else if (type === 'ufo') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(600, now);
+          osc.frequency.linearRampToValueAtTime(980, now + 0.12);
+          osc.frequency.linearRampToValueAtTime(520, now + 0.25);
+          gain.gain.setValueAtTime(0.09 * vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.27);
+        }
+      } catch (e) {}
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById('soundBtn').textContent = soundEnabled ? '🔊' : '🔇';
+      if (soundEnabled) playSound('bubble');
+      saveGameProgress();
+    }
+
+    function triggerScreenShake() {
+      if (!screenShakeEnabled) return;
+      const stage = document.getElementById('aquariumStage');
+      stage.classList.remove('shake-active');
+      void stage.offsetWidth;
+      stage.classList.add('shake-active');
+    }
+
+    // =========================================================================
+    // 3. DUAL-MOOD GAME STATE (COZY vs CHAOS) & AUTONOMOUS PERSONALITIES
+    // =========================================================================
+    let gameMood = 'cozy';
+    let pearls = 75;
+    let hearts = 30;
+    let waterClarity = 99;
+    let interactionMode = 'tool1';
+    let selectedSubItem = 0;
+    let selectedFishId = 1;
+    let lightingMode = 0;
+    let pairDuetTimer = 0;
+
+    let whirlpool = null;
+    let discoSubwoofer = null;
+    let ufoVisitor = null;
+    let rubberDuck = null;
+    let rainbowFoamTimer = 0;
+
+    const chaosCombos = [
+      {
+        id: 'pelmeni_storm',
+        name: '🥟🌪️ Пельменный Торнадо',
+        recipe: 'Водоворот + Гигантские Пельмени',
+        desc: 'Водоворот закручивает пельмени в эпическую карусель, а Никко ловит их в полёте в очках!',
+        reward: 25,
+        discovered: false
+      },
+      {
+        id: 'cyber_rave',
+        name: '🪩⚡ Кибер-Рейв 3000',
+        recipe: 'Диско-Сабвуфер + Турбо-Эспрессо',
+        desc: 'Рыбки надевают пиксельные очки Deal With It, включают неоновый шлейф и прыгают под басы!',
+        reward: 30,
+        discovered: false
+      },
+      {
+        id: 'ufo_duck_battle',
+        name: '🛸🦆 Битва за Уточку',
+        recipe: 'НЛО-Краб + Уточка-Годзилла',
+        desc: 'Пришелец пытается похитить резиновую уточку лучом, но рыбки спасают её пузырьковым залпом!',
+        reward: 35,
+        discovered: false
+      },
+      {
+        id: 'foam_party',
+        name: '🫧🌪️ Пенная Дискотека Абсурда',
+        recipe: 'Водоворот + Турбо-Пена',
+        desc: 'Весь аквариум заполняется радужными диско-пузырями, осыпающими риф жемчугом!',
+        reward: 25,
+        discovered: false
+      }
+    ];
+
+    const namePresets = [
+      { id: 'nikko_viora', male: 'Никко', female: 'Виора', desc: 'Солнечный Никко (намек на Никиту) и нежная Виора (намек на Веру)' },
+      { id: 'nikki_veri', male: 'Никки', female: 'Вери', desc: 'Ласковые короткие имена на европейский манер' },
+      { id: 'kit_verbena', male: 'Китёнок Ник', female: 'Вербена', desc: 'Сказочно-морской дуэт: Китёнок Ник и цветочная Вербена' },
+      { id: 'nektar_venera', male: 'Нектарин', female: 'Венера', desc: 'Тёплый фруктово-звёздный шифр созвучных имён' }
+    ];
+    let activePresetId = 'nikko_viora';
+
+    const cozyFoods = [
+      { name: 'Хлопья (0✨)', cost: 0, xp: 22, hunger: 25, color: '#FFB86F', radius: 4.8, emoji: '' },
+      { name: 'Артемия (5✨)', cost: 5, xp: 45, hunger: 40, color: '#FF758F', radius: 5.5, emoji: '' },
+      { name: 'Нектар роста (10✨)', cost: 10, xp: 80, hunger: 55, color: '#B899FF', radius: 6.5, emoji: '' }
+    ];
+
+    const chaosFoods = [
+      { name: '🥟 Царь-Пельмень (0✨)', cost: 0, xp: 30, hunger: 35, color: '#FFF3D6', radius: 9, emoji: '🥟', chaosTag: 'pelmeni' },
+      { name: '🍕 Космо-Пицца (5✨)', cost: 5, xp: 55, hunger: 45, color: '#FF9F1C', radius: 10, emoji: '🍕', chaosTag: 'pizza' },
+      { name: '⚡ Турбо-Эспрессо (8✨)', cost: 8, xp: 75, hunger: 50, color: '#00F5D4', radius: 9, emoji: '⚡', chaosTag: 'espresso' }
+    ];
+
+    const chaosGadgets = [
+      { id: 'whirlpool', name: '🌪️ Водоворот', desc: 'Клик по воде создаёт весёлую центрифугу!' },
+      { id: 'subwoofer', name: '🪩 Сабвуфер', desc: 'Ставит на дно басс-колонку с диско-волнами!' },
+      { id: 'ufo', name: '🛸 НЛО-Краб', desc: 'Вызывает летающую тарелку с лучом захвата!' },
+      { id: 'duck', name: '🦆 Уточка-Босс', desc: 'Десантирует гигантскую резиновую уточку!' }
+    ];
+    let selectedChaosGadget = 'whirlpool';
+
+    const stageNames = ['Кроха', 'Подросток', 'Королевская'];
+    const stageScales = [0.78, 1.04, 1.32];
+
+    const fishes = [
+      {
+        id: 1,
+        isMainMale: true,
+        name: 'Никко',
+        species: 'Лазурно-золотой кои-телескоп',
+        trait: '🌊 Заботливый хранитель и гурман',
+        chaosRole: '🕶️ Охотник за пельменями',
+        bodyColor: '#56C5D0',
+        finColor: '#FFB84D',
+        bellyColor: '#E4FBF8',
+        x: 130,
+        y: 185,
+        vx: 1.1,
+        vy: 0.3,
+        targetX: 200,
+        targetY: 180,
+        stage: 1,
+        xp: 55,
+        maxXp: 100,
+        hunger: 86,
+        love: 4,
+        phase: 0,
+        flipTimer: 0,
+        glowTimer: 0,
+        zoomiesTimer: 0,
+        behaviorState: 'Охраняет Виору',
+        behaviorTimer: 120,
+        speech: '«Плыву проверить, как дела у Виоры~ ♥»',
+        speechTimer: 180,
+        cozyThoughts: [
+          '«Главное, чтобы Виора всегда улыбалась!»',
+          '«Оставлю самую вкусную гранулу для неё~»',
+          '«Когда мы плывём рядышком, вода теплее ♥»'
+        ],
+        chaosThoughts: [
+          '«ВИОРА, СМОТРИ, ПЕЛЬМЕНЬ С НЕБА!! 🥟🕶️»',
+          '«Кто включил центрифугу?! Ещё кружок!! 🌪️»',
+          '«Диско-плавники активированы на 200%!»'
+        ]
+      },
+      {
+        id: 2,
+        isMainFemale: true,
+        name: 'Виора',
+        species: 'Жемчужно-персиковая вуалехвостка',
+        trait: '🌸 Вдохновляющая мечтательница',
+        chaosRole: '👑 Королева диско-рифа',
+        bodyColor: '#FF8FA3',
+        finColor: '#FFE066',
+        bellyColor: '#FFF0F3',
+        x: 235,
+        y: 190,
+        vx: -0.9,
+        vy: 0.25,
+        targetX: 170,
+        targetY: 185,
+        stage: 1,
+        xp: 60,
+        maxXp: 100,
+        hunger: 88,
+        love: 4,
+        phase: 1.8,
+        flipTimer: 0,
+        glowTimer: 0,
+        zoomiesTimer: 0,
+        behaviorState: 'Танцует у коралла',
+        behaviorTimer: 140,
+        speech: '«С Никко даже обычные пузырьки волшебные~ ✨»',
+        speechTimer: 200,
+        cozyThoughts: [
+          '«Обожаю танцевать хвостиками вместе с Никко!»',
+          '«Какой уютный риф ты для нас создаёшь~»',
+          '«В ракушке сегодня засияла розовая жемчужинка!»'
+        ],
+        chaosThoughts: [
+          '«Хаос хаосом, а укладка плавников идеальная! 💅✨»',
+          '«Никко, не ешь пельмень целиком, поделись!»',
+          '«Уточка-Годзилла мне даже идёт к лицу 🦆»'
+        ]
+      },
+      {
+        id: 3,
+        name: 'Зефирка',
+        species: 'Лавандовая малышка-гуппи',
+        trait: '✨ Младшая непоседа рифа',
+        chaosRole: '🚀 DVD-скринсейвер торпеда',
+        bodyColor: '#B899FF',
+        finColor: '#FF9CEE',
+        bellyColor: '#F5EEFF',
+        x: 180,
+        y: 280,
+        vx: 1.2,
+        vy: -0.5,
+        targetX: 250,
+        targetY: 250,
+        stage: 0,
+        xp: 40,
+        maxXp: 100,
+        hunger: 78,
+        love: 2,
+        phase: 3.6,
+        flipTimer: 0,
+        glowTimer: 0,
+        zoomiesTimer: 0,
+        behaviorState: 'Играет в прятки',
+        behaviorTimer: 100,
+        speech: '«Я учусь танцевать у главной пары!»',
+        speechTimer: 0,
+        cozyThoughts: [
+          '«Я тоже хочу вырасти такой же грациозной!»',
+          '«Пузырьки щекочут мне носик~»'
+        ],
+        chaosThoughts: [
+          '«Я СКОРОСТЬ! Я ПУЗЫРЬКОВАЯ РАКЕТА!! 🚀»',
+          '«Отскок от угла экрана = 1000 очков стиля!»'
+        ]
+      }
+    ];
+
+    const adoptableCatalog = [
+      {
+        id: 'adopt_betta',
+        name: 'Комета',
+        species: 'Коралловый петушок',
+        trait: '🧭 Храбрый исследователь',
+        chaosRole: '🎸 Рок-звезда рифа',
+        desc: 'В уюте изучает кораллы, а в трэш-режиме устраивает соло на пузырьках.',
+        cost: 25,
+        icon: '🌺',
+        adopted: false,
+        bodyColor: '#FF6B6B',
+        finColor: '#FFE66D',
+        bellyColor: '#FFD6D6'
+      },
+      {
+        id: 'adopt_puff',
+        name: 'Бусинка',
+        species: 'Солнечный тетраодон',
+        trait: '🌞 Маленькое солнышко',
+        chaosRole: '🎈 Шар-батут',
+        desc: 'Надувается от восторга и светится как диско-шар.',
+        cost: 35,
+        icon: '🐡',
+        adopted: false,
+        bodyColor: '#FFC857',
+        finColor: '#FF8E72',
+        bellyColor: '#FFF6D6'
+      }
+    ];
+
+    const decorCatalog = [
+      { id: 'kelp_lush', name: 'Мятная валлиснерия', desc: 'Пышные водоросли (в трэше танцуют под бит).', cost: 0, unlocked: true, placed: true, icon: '🌿', xRatio: 0.16, yRatio: 0.84 },
+      { id: 'pearl_clam', name: 'Жемчужная ракушка', desc: 'Дарит жемчужинки (в трэше битбоксит).', cost: 0, unlocked: true, placed: true, icon: '🐚', xRatio: 0.80, yRatio: 0.86 },
+      { id: 'singing_coral', name: 'Коралл влюблённых', desc: 'Сердечный риф для дуэта Никко и Виоры.', cost: 15, unlocked: true, placed: true, icon: '🪸', xRatio: 0.48, yRatio: 0.85 },
+      { id: 'cozy_jar', name: 'Уютный кувшинчик', desc: 'Керамический грот для отдыха.', cost: 15, unlocked: false, placed: false, icon: '🏺', xRatio: 0.32, yRatio: 0.86 },
+      { id: 'trick_ring', name: 'Кольцо трюков', desc: 'Рыбки прыгают сквозь него за +💖.', cost: 20, unlocked: false, placed: false, icon: '⭕', xRatio: 0.62, yRatio: 0.48 },
+      { id: 'glow_jelly', name: 'Медузка-ночник', desc: 'Парит и светится неоном.', cost: 25, unlocked: false, placed: false, icon: '🪼', xRatio: 0.28, yRatio: 0.40 }
+    ];
+
+    const pellets = [];
+    const bubbles = [];
+    const particles = [];
+    const ripples = [];
+    const algaeSpots = [];
+    let guestSnail = null;
+    let draggingDecor = null;
+
+    // =========================================================================
+    // 4. DUAL STORAGE: LOCALSTORAGE + VK CLOUD STORAGE
+    // =========================================================================
+    const STORAGE_KEY = 'aqua_cozy_chaos_save_v1';
+
+    function saveGameProgress() {
+      try {
+        const state = {
+          pearls,
+          hearts,
+          waterClarity,
+          activePresetId,
+          soundEnabled,
+          sfxVolume,
+          screenShakeEnabled,
+          tapticEnabled,
+          fishes: fishes.map(f => ({
+            id: f.id,
+            name: f.name,
+            stage: f.stage,
+            xp: f.xp,
+            hunger: f.hunger,
+            love: f.love
+          })),
+          decor: decorCatalog.map(d => ({
+            id: d.id,
+            unlocked: d.unlocked,
+            placed: d.placed,
+            xRatio: d.xRatio,
+            yRatio: d.yRatio
+          })),
+          adoptedIds: adoptableCatalog.filter(a => a.adopted).map(a => a.id),
+          discoveredCombos: chaosCombos.filter(c => c.discovered).map(c => c.id)
+        };
+        const jsonStr = JSON.stringify(state);
+        localStorage.setItem(STORAGE_KEY, jsonStr);
+        saveToVKCloudStorage(jsonStr);
+      } catch (e) {}
+    }
+
+    function applyLoadedStateJSON(raw) {
+      if (!raw) return;
+      const state = JSON.parse(raw);
+      if (typeof state.pearls === 'number') pearls = state.pearls;
+      if (typeof state.hearts === 'number') hearts = state.hearts;
+      if (typeof state.waterClarity === 'number') waterClarity = state.waterClarity;
+      if (state.activePresetId) activePresetId = state.activePresetId;
+      if (typeof state.soundEnabled === 'boolean') soundEnabled = state.soundEnabled;
+      if (typeof state.sfxVolume === 'number') sfxVolume = state.sfxVolume;
+      if (typeof state.screenShakeEnabled === 'boolean') screenShakeEnabled = state.screenShakeEnabled;
+      if (typeof state.tapticEnabled === 'boolean') tapticEnabled = state.tapticEnabled;
+
+      if (Array.isArray(state.decor)) {
+        state.decor.forEach(savedD => {
+          const target = decorCatalog.find(d => d.id === savedD.id);
+          if (target) {
+            target.unlocked = !!savedD.unlocked;
+            target.placed = !!savedD.placed;
+            if (typeof savedD.xRatio === 'number') target.xRatio = savedD.xRatio;
+            if (typeof savedD.yRatio === 'number') target.yRatio = savedD.yRatio;
+          }
+        });
+      }
+
+      if (Array.isArray(state.adoptedIds)) {
+        state.adoptedIds.forEach(adId => {
+          const catItem = adoptableCatalog.find(a => a.id === adId);
+          if (catItem && !catItem.adopted) {
+            catItem.adopted = true;
+            fishes.push({
+              id: fishes.length + 10,
+              name: catItem.name,
+              species: catItem.species,
+              trait: catItem.trait,
+              chaosRole: catItem.chaosRole,
+              bodyColor: catItem.bodyColor,
+              finColor: catItem.finColor,
+              bellyColor: catItem.bellyColor,
+              x: 160,
+              y: 210,
+              vx: 1.0,
+              vy: 0.2,
+              targetX: 200,
+              targetY: 200,
+              stage: 0,
+              xp: 15,
+              maxXp: 100,
+              hunger: 85,
+              love: 2,
+              phase: Math.random() * 6,
+              flipTimer: 0,
+              glowTimer: 0,
+              zoomiesTimer: 0,
+              behaviorState: 'Исследует риф',
+              behaviorTimer: 100,
+              speech: '«Рада снова видеть тебя!»',
+              speechTimer: 120,
+              cozyThoughts: ['«Как тут тепло~»'],
+              chaosThoughts: ['«Даёшь диско-бульк!! 🎸»']
+            });
+          }
+        });
+      }
+
+      if (Array.isArray(state.fishes)) {
+        state.fishes.forEach(sf => {
+          const target = fishes.find(f => f.id === sf.id);
+          if (target) {
+            if (sf.name) target.name = sf.name;
+            if (typeof sf.stage === 'number') target.stage = sf.stage;
+            if (typeof sf.xp === 'number') target.xp = sf.xp;
+            if (typeof sf.hunger === 'number') target.hunger = sf.hunger;
+            if (typeof sf.love === 'number') target.love = sf.love;
+          }
+        });
+      }
+
+      if (Array.isArray(state.discoveredCombos)) {
+        state.discoveredCombos.forEach(cid => {
+          const c = chaosCombos.find(x => x.id === cid);
+          if (c) c.discovered = true;
+        });
+      }
+    }
+
+    function loadGameProgress() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) applyLoadedStateJSON(raw);
+      } catch (e) {}
+    }
+
+    function resetProgress() {
+      if (!confirm('Сбросить прогресс к начальному состоянию?')) return;
+      localStorage.removeItem(STORAGE_KEY);
+      location.reload();
+    }
+
+    // =========================================================================
+    // 5. MOOD SWITCHING: COZY MODE <-> CHAOS MODE
+    // =========================================================================
+    function getMainMale() { return fishes.find(f => f.isMainMale) || fishes[0]; }
+    function getMainFemale() { return fishes.find(f => f.isMainFemale) || fishes[1]; }
+
+    function switchGameMood(targetMood) {
+      gameMood = targetMood;
+      const isChaos = gameMood === 'chaos';
+      triggerVKTaptic(isChaos ? 'heavy' : 'light');
+
+      document.getElementById('iphoneShell').classList.toggle('chaos-theme', isChaos);
+      document.getElementById('bodyRoot').classList.toggle('chaos-body', isChaos);
+      document.getElementById('btnCozyMode').className = 'mood-switch-btn' + (!isChaos ? ' cozy-active' : '');
+      document.getElementById('btnChaosMode').className = 'mood-switch-btn' + (isChaos ? ' chaos-active' : '');
+      syncVKViewSettings();
+
+      if (!isChaos) {
+        whirlpool = null;
+        discoSubwoofer = null;
+        ufoVisitor = null;
+        rubberDuck = null;
+        rainbowFoamTimer = 0;
+
+        document.getElementById('dock1Icon').textContent = '👋';
+        document.getElementById('dock1Label').textContent = 'Ласка';
+        document.getElementById('dock2Icon').textContent = '🍪';
+        document.getElementById('dock2Label').textContent = 'Кормить';
+        document.getElementById('dock3Icon').textContent = '🫧';
+        document.getElementById('dock3Label').textContent = 'Губка';
+        document.getElementById('quickBtn1Icon').textContent = '🤲';
+        document.getElementById('quickBtn1Label').textContent = 'Ласка';
+        document.getElementById('quickBtn2Icon').textContent = '💞';
+        document.getElementById('quickBtn2Label').textContent = 'Дуэт';
+
+        playSound('chime');
+        showToast('🌸 Уютный режим: пастельный покой, нежный уход и никаких забот~');
+      } else {
+        document.getElementById('dock1Icon').textContent = '🌪️';
+        document.getElementById('dock1Label').textContent = 'Гаджеты';
+        document.getElementById('dock2Icon').textContent = '🥟';
+        document.getElementById('dock2Label').textContent = 'Трэш-Еда';
+        document.getElementById('dock3Icon').textContent = '🫧';
+        document.getElementById('dock3Label').textContent = 'Турбо-Пена';
+        document.getElementById('quickBtn1Icon').textContent = '🕶️';
+        document.getElementById('quickBtn1Label').textContent = 'Флекс';
+        document.getElementById('quickBtn2Icon').textContent = '🪩';
+        document.getElementById('quickBtn2Label').textContent = 'Рейв';
+
+        fishes.forEach(f => {
+          f.speech = f.chaosThoughts[Math.floor(Math.random() * f.chaosThoughts.length)];
+          f.speechTimer = 180;
+          f.flipTimer = 45;
+        });
+
+        playSound('bass');
+        triggerScreenShake();
+        showToast('🔥 CHAOS MODE ВКЛЮЧЁН! Комбинируйте пельмени, водовороты, НЛО и сабвуфер!');
+      }
+
+      syncTopPill();
+      setInteractionMode(interactionMode);
+      renderFishStrip();
+      saveGameProgress();
+    }
+
+    function syncTopPill() {
+      const m = getMainMale();
+      const f = getMainFemale();
+      const pill = document.getElementById('tankTopPillText');
+      const countEl = document.getElementById('comboDiscoveredCount');
+      const discCount = chaosCombos.filter(c => c.discovered).length;
+      if (countEl) countEl.textContent = `${discCount}/${chaosCombos.length}`;
+
+      if (gameMood === 'cozy') {
+        pill.innerHTML = `💞 Дуэт: <strong>${m.name} & ${f.name}</strong> • Вальс пары`;
+      } else {
+        pill.innerHTML = `🔥 Трэш-Комбо: <strong>${discCount}/${chaosCombos.length}</strong> • Открыть миксер!`;
+      }
+    }
+
+    function handleTopPillClick() {
+      if (gameMood === 'cozy') {
+        triggerPairDuet();
+      } else {
+        openSheet('combos');
+      }
+    }
+
+    function handleSpecialActionBtn() {
+      if (gameMood === 'cozy') {
+        triggerPairDuet();
+      } else {
+        spawnChaosGadgetAt('subwoofer', canvas.width * 0.5, canvas.height * 0.82);
+        fishes.forEach(f => {
+          f.zoomiesTimer = 260;
+          f.flipTimer = 50;
+        });
+        checkChaosCombos('espresso');
+      }
+    }
+
+    // =========================================================================
+    // 6. COMBINATORIAL CHAOS SYSTEM
+    // =========================================================================
+    function checkChaosCombos(recentTrigger) {
+      if (gameMood !== 'chaos') return;
+
+      const hasPelmeni = pellets.some(p => p.food && p.food.chaosTag === 'pelmeni') || recentTrigger === 'pelmeni';
+      const hasEspresso = fishes.some(f => f.zoomiesTimer > 0) || recentTrigger === 'espresso';
+
+      if (whirlpool && hasPelmeni) triggerComboEffect('pelmeni_storm');
+      if (discoSubwoofer && hasEspresso) triggerComboEffect('cyber_rave');
+      if (ufoVisitor && rubberDuck) triggerComboEffect('ufo_duck_battle');
+      if (whirlpool && rainbowFoamTimer > 0) triggerComboEffect('foam_party');
+    }
+
+    function triggerComboEffect(comboId) {
+      const combo = chaosCombos.find(c => c.id === comboId);
+      if (!combo) return;
+
+      const firstTime = !combo.discovered;
+      combo.discovered = true;
+      const bonus = firstTime ? combo.reward : 10;
+      pearls += bonus;
+      hearts += 4;
+
+      triggerVKTaptic('heavy');
+      playSound('chime');
+      playSound('bass');
+      triggerScreenShake();
+      spawnParticles(canvas.width * 0.5, canvas.height * 0.45, 'sparkle', 18);
+      spawnParticles(canvas.width * 0.5, canvas.height * 0.45, 'heart', 10);
+
+      const m = getMainMale();
+      const f = getMainFemale();
+      if (comboId === 'pelmeni_storm') {
+        m.speech = '«ЛОВЛЮ ЦАРЬ-ПЕЛЬМЕНЬ В ТОРНАДО!! 🥟🌪️»';
+        m.speechTimer = 220;
+        m.flipTimer = 70;
+      } else if (comboId === 'cyber_rave') {
+        f.speech = '«КИБЕР-РЕЙВ! ДЕРЖИТЕ МОИ ОЧКИ! 🕶️🪩»';
+        f.speechTimer = 220;
+        fishes.forEach(fish => { fish.zoomiesTimer = 300; fish.glowTimer = 300; });
+      } else if (comboId === 'ufo_duck_battle') {
+        m.speech = `«${f.name}, защищаем Уточку от НЛО!! 🛸🦆»`;
+        m.speechTimer = 220;
+        f.speech = '«Огонь пузырьками по тарелке!! 🫧💥»';
+        f.speechTimer = 220;
+      } else if (comboId === 'foam_party') {
+        f.speech = '«ПЕННАЯ ВЕЧЕРИНКА НА ВЕСЬ ЭКРАН!! 🫧🎉»';
+        f.speechTimer = 220;
+      }
+
+      updateHUD('pearl');
+      syncTopPill();
+      renderFishStrip();
+      saveGameProgress();
+      showToast(`🔥 КОМБО-ХАОС: ${combo.name}! (+${bonus} ✨, +4 💖)`);
+    }
+
+    function launchComboFromLab(comboId) {
+      closeSheet();
+      if (gameMood !== 'chaos') switchGameMood('chaos');
+      const cx = canvas.width * 0.5;
+      const cy = canvas.height * 0.5;
+
+      if (comboId === 'pelmeni_storm') {
+        whirlpool = { x: cx, y: cy, timer: 360 };
+        for (let i = 0; i < 5; i++) {
+          pellets.push({
+            x: cx + (Math.random() - 0.5) * 90,
+            y: 40 + i * 18,
+            vy: 0.8,
+            food: chaosFoods[0],
+            wobble: i
+          });
+        }
+        checkChaosCombos('pelmeni');
+      } else if (comboId === 'cyber_rave') {
+        discoSubwoofer = { x: cx, y: canvas.height * 0.84, timer: 420 };
+        fishes.forEach(f => { f.zoomiesTimer = 320; });
+        checkChaosCombos('espresso');
+      } else if (comboId === 'ufo_duck_battle') {
+        ufoVisitor = { x: cx - 40, y: 55, targetX: cx + 40, timer: 420 };
+        rubberDuck = { x: cx, y: 110, vx: 1.2, timer: 420 };
+        checkChaosCombos('ufo');
+      } else if (comboId === 'foam_party') {
+        whirlpool = { x: cx, y: cy, timer: 360 };
+        rainbowFoamTimer = 320;
+        for (let i = 0; i < 35; i++) {
+          bubbles.push({
+            x: Math.random() * canvas.width,
+            y: canvas.height - Math.random() * 80,
+            r: 5 + Math.random() * 8,
+            vy: 1.8 + Math.random() * 2.2,
+            wobble: Math.random() * 6,
+            neonColor: ['#FF2E93', '#00F5D4', '#FEE440', '#9B5DE5'][i % 4]
+          });
+        }
+        checkChaosCombos('foam');
+      }
+    }
+
+    // =========================================================================
+    // 7. UI CONTROLS, MODES & SUB-BARS
+    // =========================================================================
+    function setInteractionMode(mode) {
+      interactionMode = mode;
+      document.getElementById('dockTool1').classList.toggle('active', mode === 'tool1');
+      document.getElementById('dockTool2').classList.toggle('active', mode === 'tool2');
+      document.getElementById('dockTool3').classList.toggle('active', mode === 'tool3');
+
+      const subBar = document.getElementById('floatingSubBar');
+      subBar.innerHTML = '';
+
+      if (gameMood === 'cozy') {
+        if (mode === 'tool2') {
+          subBar.classList.add('visible');
+          cozyFoods.forEach((f, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'sub-pill-btn' + (selectedSubItem === idx ? ' active' : '');
+            btn.textContent = f.name;
+            btn.onclick = () => { selectedSubItem = idx; setInteractionMode('tool2'); };
+            subBar.appendChild(btn);
+          });
+        } else {
+          subBar.classList.remove('visible');
+        }
+      } else {
+        if (mode === 'tool1') {
+          subBar.classList.add('visible');
+          chaosGadgets.forEach(g => {
+            const btn = document.createElement('button');
+            btn.className = 'sub-pill-btn' + (selectedChaosGadget === g.id ? ' active' : '');
+            btn.textContent = g.name;
+            btn.onclick = () => {
+              selectedChaosGadget = g.id;
+              setInteractionMode('tool1');
+              showToast(`${g.name}: ${g.desc}`);
+            };
+            subBar.appendChild(btn);
+          });
+        } else if (mode === 'tool2') {
+          subBar.classList.add('visible');
+          chaosFoods.forEach((f, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'sub-pill-btn' + (selectedSubItem === idx ? ' active' : '');
+            btn.textContent = f.name;
+            btn.onclick = () => { selectedSubItem = idx; setInteractionMode('tool2'); };
+            subBar.appendChild(btn);
+          });
+        } else {
+          subBar.classList.remove('visible');
+        }
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('eventToast');
+      toast.innerHTML = msg;
+      toast.classList.add('visible');
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => toast.classList.remove('visible'), 3300);
+    }
+
+    function updateHUD(pulseType) {
+      document.getElementById('pearlCount').textContent = pearls;
+      document.getElementById('heartCount').textContent = hearts;
+      document.getElementById('waterClarityText').textContent = Math.round(waterClarity) + '%';
+
+      if (pulseType === 'pearl') {
+        const el = document.getElementById('pearlStat');
+        el.classList.add('pulse');
+        setTimeout(() => el.classList.remove('pulse'), 220);
+      } else if (pulseType === 'heart') {
+        const el = document.getElementById('heartStat');
+        el.classList.add('pulse');
+        setTimeout(() => el.classList.remove('pulse'), 220);
+      }
+    }
+
+    function renderFishStrip() {
+      const row = document.getElementById('fishChipsRow');
+      row.innerHTML = '';
+
+      fishes.forEach(fish => {
+        const chip = document.createElement('button');
+        chip.className = 'fish-chip' + (fish.id === selectedFishId ? ' selected' : '');
+        const badge = gameMood === 'chaos' ? '🕶️ ' : (fish.stage === 2 ? '👑 ' : (fish.isMainMale || fish.isMainFemale ? '💞 ' : ''));
+        chip.innerHTML = `
+          <span class="dot" style="background:${fish.bodyColor}"></span>
+          <span>${badge}${fish.name}</span>
+        `;
+        chip.onclick = () => {
+          selectedFishId = fish.id;
+          renderFishStrip();
+        };
+        row.appendChild(chip);
+      });
+
+      const sel = fishes.find(f => f.id === selectedFishId) || fishes[0];
+      if (!sel) return;
+      document.getElementById('inspName').textContent = sel.name;
+      document.getElementById('inspStage').textContent = stageNames[sel.stage];
+      document.getElementById('inspBehavior').textContent = gameMood === 'chaos' ? sel.chaosRole : sel.behaviorState;
+      document.getElementById('inspThought').textContent = sel.speech || (gameMood === 'chaos' ? sel.chaosThoughts[0] : sel.cozyThoughts[0]);
+      document.getElementById('inspHungerBar').style.width = `${Math.min(100, Math.round(sel.hunger))}%`;
+      document.getElementById('inspXpBar').style.width = `${sel.stage === 2 ? 100 : Math.min(100, Math.round((sel.xp / sel.maxXp) * 100))}%`;
+    }
+
+    function petSelectedFish() {
+      const fish = fishes.find(f => f.id === selectedFishId) || fishes[0];
+      if (fish) petFish(fish);
+    }
+
+    function petFish(fish) {
+      triggerVKTaptic('light');
+      fish.love += 1;
+      hearts += 1;
+      pearls += 2;
+      const pool = gameMood === 'chaos' ? fish.chaosThoughts : fish.cozyThoughts;
+      fish.speech = pool[Math.floor(Math.random() * pool.length)];
+      fish.speechTimer = 180;
+      fish.flipTimer = 42;
+      if (gameMood === 'chaos') {
+        fish.zoomiesTimer = 120;
+        playSound('bass');
+      } else {
+        playSound('bubble');
+      }
+      spawnParticles(fish.x, fish.y - 12, 'heart', 6);
+      updateHUD('heart');
+      renderFishStrip();
+      saveGameProgress();
+    }
+
+    function triggerPairDuet() {
+      triggerVKTaptic('medium');
+      const m = getMainMale();
+      const f = getMainFemale();
+      const cx = canvas.width * 0.5;
+      const cy = canvas.height * 0.46;
+      pairDuetTimer = 180;
+
+      m.targetX = cx - 26;
+      m.targetY = cy;
+      f.targetX = cx + 26;
+      f.targetY = cy;
+      m.flipTimer = 55;
+      f.flipTimer = 55;
+      m.glowTimer = 220;
+      f.glowTimer = 220;
+
+      m.speech = `«Танец для моей ${f.name}! 💞»`;
+      m.speechTimer = 200;
+      f.speech = `«С ${m.name} хоть в космос, хоть в водоворот~ 💖»`;
+      f.speechTimer = 200;
+
+      hearts += 4;
+      pearls += 6;
+      playSound('chime');
+      spawnParticles(cx, cy, 'heart', 14);
+      updateHUD('heart');
+      renderFishStrip();
+      saveGameProgress();
+      showToast(`💞 Дуэт: ${m.name} и ${f.name} кружатся в синхронном вальсе (+4 💖, +6 ✨)!`);
+    }
+
+    function triggerMoodSurprise() {
+      triggerVKTaptic('medium');
+      if (gameMood === 'cozy') {
+        const m = getMainMale();
+        const f = getMainFemale();
+        pearls += 12;
+        hearts += 3;
+        m.speech = `«Я нашёл ракушку для ${f.name}! 🐚 +12 ✨»`;
+        m.speechTimer = 210;
+        f.speech = `«Какая прелесть! Спасибо, ${m.name}~ ♥»`;
+        f.speechTimer = 210;
+        guestSnail = { x: 46, y: canvas.height * 0.64, timer: 380 };
+        playSound('chime');
+        spawnParticles((m.x + f.x) / 2, (m.y + f.y) / 2, 'heart', 12);
+        updateHUD('pearl');
+        saveGameProgress();
+        showToast(`🎁 Уютный сюрприз: ${m.name} подарил ${f.name} жемчужину (+12 ✨)!`);
+      } else {
+        const ids = chaosCombos.map(c => c.id);
+        const pick = ids[Math.floor(Math.random() * ids.length)];
+        launchComboFromLab(pick);
+      }
+    }
+
+    function cycleLighting() {
+      lightingMode = (lightingMode + 1) % 3;
+      const icons = ['🌅', '🌇', '🌙'];
+      document.getElementById('lightBtn').textContent = icons[lightingMode];
+      playSound('bubble');
+    }
+
+    function togglePhoneFrame() {
+      const shell = document.getElementById('iphoneShell');
+      shell.classList.toggle('fullscreen-mode');
+      setTimeout(resizeCanvas, 50);
+    }
+
+    // =========================================================================
+    // 8. SLIDE-UP SHEETS: VK MINI APPS HUB, DECOR, ADOPT, COMBOS, SETTINGS
+    // =========================================================================
+    function openSheet(type) {
+      const backdrop = document.getElementById('sheetBackdrop');
+      const title = document.getElementById('sheetTitle');
+      const content = document.getElementById('sheetContent');
+      content.innerHTML = '';
+
+      if (type === 'vk') {
+        title.textContent = '💙 Центр интеграции VK Mini Apps';
+        const box = document.createElement('div');
+        box.style.display = 'flex';
+        box.style.flexDirection = 'column';
+        box.style.gap = '8px';
+        box.innerHTML = `
+          <div class="catalog-card" style="border-color:#0077FF;">
+            <div class="catalog-title">🟢 Статус VK Bridge SDK: ${isInsideVK ? 'Запущено внутри ВКонтакте' : 'Готово к запуску в ВК (Тест-режим)'}</div>
+            <div class="catalog-desc">
+              В игру уже встроен официальный пакет <strong>@vkontakte/vk-bridge</strong>: автоматический <code>VKWebAppInit</code>, облачное сохранение <code>VKWebAppStorage</code>, вибрация iPhone <code>Taptic Engine</code> и экспорт снимков аквариума в Истории ВК.
+            </div>
+          </div>
+
+          <div class="sheet-grid">
+            <div class="catalog-card">
+              <div class="catalog-title">📸 В Историю ВК</div>
+              <div class="catalog-desc">Делает живой снимок аквариума с Никко и Виорой и открывает редактор Историй ВК (+15 ✨).</div>
+              <button class="catalog-btn vk-action" onclick="shareToVKStory()">Опубликовать Сторис</button>
+            </div>
+            <div class="catalog-card">
+              <div class="catalog-title">💌 Позвать друга</div>
+              <div class="catalog-desc">Отправить ссылку на ваш аквариум в личные сообщения ВКонтакте (+5 💖).</div>
+              <button class="catalog-btn vk-action" onclick="shareWithVKFriends()">Поделиться в ВК</button>
+            </div>
+          </div>
+
+          <div class="sheet-grid">
+            <div class="catalog-card">
+              <div class="catalog-title">⭐ В Избранное ВК</div>
+              <div class="catalog-desc">Закрепить игру в левом меню и профиле приложения ВКонтакте.</div>
+              <button class="catalog-btn" onclick="addToVKFavorites()">Добавить в Избранное</button>
+            </div>
+            <div class="catalog-card">
+              <div class="catalog-title">☁️ Облако ВК</div>
+              <div class="catalog-desc">Синхронизировать рыбок и декор через <code>VKWebAppStorageSet</code>.</div>
+              <button class="catalog-btn placed" onclick="saveGameProgress();showToast('☁️ Сохранено в VK Storage!');">Синхронизировать</button>
+            </div>
+          </div>
+
+          <div class="catalog-card">
+            <div class="catalog-title">🚀 Как открыть этот файл прямо в приложении ВКонтакте на iPhone за 2 минуты:</div>
+            <div class="catalog-desc" style="line-height:1.4;">
+              1. Перейдите на <a href="https://dev.vk.com/" target="_blank" style="color:#0077FF;font-weight:800;">dev.vk.com</a> → <strong>Мои приложения</strong> → <strong>Создать</strong> (тип: <em>Мини-приложение</em>).<br>
+              2. Загрузите этот файл <code>cozy_aquarium_prototype.html</code> (переименовав в <code>index.html</code> в ZIP-архиве во вкладке «Хостинг» или разместив на GitHub Pages / Vercel).<br>
+              3. Откройте ссылку вида <code>vk.com/appXXXXXXX</code> с вашего iPhone — игра мгновенно запустится внутри приложения ВКонтакте с вибрацией Taptic Engine!
+            </div>
+          </div>
+        `;
+        content.appendChild(box);
+      } else if (type === 'decor') {
+        title.textContent = '🐚 Декор рифа (перетаскивайте пальцем в воде)';
+        const grid = document.createElement('div');
+        grid.className = 'sheet-grid';
+        decorCatalog.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'catalog-card' + (item.placed ? ' placed' : '');
+          const btnText = item.unlocked
+            ? (item.placed ? '✓ В аквариуме (Убрать)' : 'Поставить в риф')
+            : `Открыть за ${item.cost} ✨`;
+          card.innerHTML = `
+            <div>
+              <div class="catalog-card-top">
+                <div class="catalog-icon">${item.icon}</div>
+                <div class="catalog-title">${item.name}</div>
+              </div>
+              <div class="catalog-desc" style="margin-top:5px;">${item.desc}</div>
+            </div>
+            <button class="catalog-btn ${item.placed ? 'placed' : ''}" onclick="toggleOrBuyDecor('${item.id}')">${btnText}</button>
+          `;
+          grid.appendChild(card);
+        });
+        content.appendChild(grid);
+      } else if (type === 'adopt') {
+        title.textContent = '🐠 Приютить новых рыбок с характером';
+        const grid = document.createElement('div');
+        grid.className = 'sheet-grid';
+        adoptableCatalog.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'catalog-card' + (item.adopted ? ' placed' : '');
+          const btnText = item.adopted ? '✓ Уже плавает у вас' : `Приютить за ${item.cost} ✨`;
+          card.innerHTML = `
+            <div>
+              <div class="catalog-card-top">
+                <div class="catalog-icon">${item.icon}</div>
+                <div class="catalog-title">${item.name}<br><span style="font-weight:600;font-size:0.64rem;color:var(--text-soft);">${item.species}</span></div>
+              </div>
+              <div class="catalog-desc" style="margin-top:5px;"><strong>${item.trait}</strong> / <strong>${item.chaosRole}</strong>. ${item.desc}</div>
+            </div>
+            <button class="catalog-btn ${item.adopted ? 'placed' : ''}" onclick="adoptFish('${item.id}')">${btnText}</button>
+          `;
+          grid.appendChild(card);
+        });
+        content.appendChild(grid);
+      } else if (type === 'combos') {
+        title.textContent = '🔥 Лаборатория Трэш-Комбо (Chaos Combinations)';
+        chaosCombos.forEach(c => {
+          const row = document.createElement('div');
+          row.className = 'combo-recipe-card' + (c.discovered ? ' discovered' : '');
+          row.innerHTML = `
+            <div style="flex:1;">
+              <div style="font-size:0.8rem;font-weight:800;">
+                ${c.name} ${c.discovered ? '✅' : '🔒'}
+              </div>
+              <div style="font-size:0.68rem;font-weight:700;color:var(--accent-coral);margin-top:2px;">
+                Рецепт: ${c.recipe}
+              </div>
+              <div style="font-size:0.67rem;color:var(--text-soft);margin-top:2px;">
+                ${c.desc}
+              </div>
+            </div>
+            <button class="catalog-btn" style="width:auto;padding:7px 11px;flex-shrink:0;" onclick="launchComboFromLab('${c.id}')">
+              🚀 Тест (+${c.discovered ? 10 : c.reward}✨)
+            </button>
+          `;
+          content.appendChild(row);
+        });
+      } else if (type === 'settings') {
+        title.textContent = '⚙️ Настройки, Имена пары и Сохранение';
+        const box = document.createElement('div');
+        box.style.display = 'flex';
+        box.style.flexDirection = 'column';
+        box.style.gap = '10px';
+        box.innerHTML = `
+          <div class="catalog-card">
+            <div class="catalog-title">💞 Завуалированные имена главной пары (Никита и Вера)</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+              ${namePresets.map(p => `
+                <button class="desktop-pill" style="${activePresetId === p.id ? 'background:var(--accent-coral);color:#fff;border-color:var(--accent-coral);' : ''}" onclick="applyNamePreset('${p.id}')">
+                  ${p.male} & ${p.female}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="catalog-card">
+            <div class="catalog-title">🔊 Настройки звука, вибрации iPhone и эффектов</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.74rem;margin-top:6px;">
+              <span>Громкость эффектов (Web Audio):</span>
+              <input type="range" min="0" max="1" step="0.05" value="${sfxVolume}" oninput="sfxVolume=parseFloat(this.value);saveGameProgress();" />
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.74rem;margin-top:6px;">
+              <span>Тактильная отдача ВК (Taptic Engine):</span>
+              <button class="desktop-pill" onclick="tapticEnabled=!tapticEnabled;saveGameProgress();openSheet('settings');">
+                ${tapticEnabled ? 'Включена 📳' : 'Выключена ❌'}
+              </button>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.74rem;margin-top:6px;">
+              <span>Тряска экрана в CHAOS MODE:</span>
+              <button class="desktop-pill" onclick="screenShakeEnabled=!screenShakeEnabled;saveGameProgress();openSheet('settings');">
+                ${screenShakeEnabled ? 'Включена ✅' : 'Выключена ❌'}
+              </button>
+            </div>
+          </div>
+
+          <div class="catalog-card">
+            <div class="catalog-title">💾 Автосохранение (LocalStorage + VK Storage)</div>
+            <div class="catalog-desc">Прогресс автоматически сохраняется при любых действиях и переключении между COZY и CHAOS режимами.</div>
+            <button class="catalog-btn placed" onclick="resetProgress()">Сбросить сохранение к началу</button>
+          </div>
+        `;
+        content.appendChild(box);
+      }
+
+      backdrop.classList.add('open');
+    }
+
+    function closeSheet() {
+      document.getElementById('sheetBackdrop').classList.remove('open');
+    }
+
+    function applyNamePreset(presetId) {
+      const preset = namePresets.find(p => p.id === presetId);
+      if (!preset) return;
+      activePresetId = presetId;
+      const m = getMainMale();
+      const f = getMainFemale();
+      m.name = preset.male;
+      f.name = preset.female;
+      playSound('chime');
+      syncTopPill();
+      renderFishStrip();
+      saveGameProgress();
+      openSheet('settings');
+      showToast(`💞 Имена главной пары: ${m.name} и ${f.name}!`);
+    }
+
+    function toggleOrBuyDecor(id) {
+      const item = decorCatalog.find(d => d.id === id);
+      if (!item) return;
+      if (!item.unlocked) {
+        if (pearls < item.cost) {
+          showToast(`✨ Нужно ещё ${item.cost - pearls} жемчужинок!`);
+          return;
+        }
+        pearls -= item.cost;
+        item.unlocked = true;
+        item.placed = true;
+        triggerVKTaptic('medium');
+        playSound('chime');
+        updateHUD('pearl');
+        showToast(`🐚 Добавлено украшение: «${item.name}»!`);
+      } else {
+        item.placed = !item.placed;
+        playSound('bubble');
+      }
+      saveGameProgress();
+      openSheet('decor');
+    }
+
+    function adoptFish(id) {
+      const item = adoptableCatalog.find(a => a.id === id);
+      if (!item || item.adopted) return;
+      if (pearls < item.cost) {
+        showToast(`✨ Нужно ${item.cost} жемчужинок!`);
+        return;
+      }
+      pearls -= item.cost;
+      item.adopted = true;
+      const newFish = {
+        id: Date.now(),
+        name: item.name,
+        species: item.species,
+        trait: item.trait,
+        chaosRole: item.chaosRole,
+        bodyColor: item.bodyColor,
+        finColor: item.finColor,
+        bellyColor: item.bellyColor,
+        x: canvas.width * 0.5,
+        y: canvas.height * 0.4,
+        vx: 1.1,
+        vy: 0.25,
+        targetX: canvas.width * 0.6,
+        targetY: canvas.height * 0.5,
+        stage: 0,
+        xp: 10,
+        maxXp: 100,
+        hunger: 85,
+        love: 1,
+        phase: Math.random() * 6,
+        flipTimer: 45,
+        glowTimer: 120,
+        zoomiesTimer: 0,
+        behaviorState: 'Знакомится с рифом',
+        behaviorTimer: 120,
+        speech: '«Привет! Готова и к уюту, и к трэшу~»',
+        speechTimer: 200,
+        cozyThoughts: ['«Как у вас тепло и красиво!»'],
+        chaosThoughts: ['«Включайте сабвуфер, я в деле!! 🎸»']
+      };
+      fishes.push(newFish);
+      selectedFishId = newFish.id;
+      triggerVKTaptic('heavy');
+      playSound('chime');
+      spawnParticles(newFish.x, newFish.y, 'heart', 10);
+      updateHUD('pearl');
+      renderFishStrip();
+      saveGameProgress();
+      openSheet('adopt');
+      showToast(`🐠 Новый питомец в рифе: ${newFish.name}!`);
+    }
+
+    // =========================================================================
+    // 9. CANVAS INPUT & SIMULATION ENGINE
+    // =========================================================================
+    const canvas = document.getElementById('aquariumCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = document.getElementById('canvasContainer').getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function spawnParticles(x, y, type, count) {
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.8 + Math.random() * 2.2;
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 0.8,
+          life: 1.0,
+          type,
+          size: 11 + Math.random() * 7
+        });
+      }
+    }
+
+    function spawnChaosGadgetAt(gadgetId, x, y) {
+      triggerVKTaptic('medium');
+      if (gadgetId === 'whirlpool') {
+        whirlpool = { x, y, timer: 320 };
+        playSound('bubble');
+        showToast('🌪️ Водоворот запущен! Бросьте туда пельмени или пену для КОМБО!');
+        checkChaosCombos('whirlpool');
+      } else if (gadgetId === 'subwoofer') {
+        discoSubwoofer = { x, y: Math.max(y, canvas.height * 0.76), timer: 380 };
+        playSound('bass');
+        triggerScreenShake();
+        showToast('🪩 Подводный Сабвуфер качает басы! Дайте рыбкам Турбо-Эспрессо для КОМБО!');
+        checkChaosCombos('subwoofer');
+      } else if (gadgetId === 'ufo') {
+        ufoVisitor = { x, y: 52, targetX: x, timer: 380 };
+        playSound('ufo');
+        showToast('🛸 НЛО-Краб сканирует аквариум! Выпустите Уточку-Босса для КОМБО!');
+        checkChaosCombos('ufo');
+      } else if (gadgetId === 'duck') {
+        rubberDuck = { x, y: Math.min(y, 130), vx: 1.3, timer: 380 };
+        playSound('chomp');
+        showToast('🦆 Гигантская Резиновая Уточка десантировалась в воду!');
+        checkChaosCombos('duck');
+      }
+    }
+
+    function getCanvasCoords(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      return { x: clientX - rect.left, y: clientY - rect.top };
+    }
+
+    function handlePointerDown(x, y) {
+      ripples.push({ x, y, r: 4, alpha: 0.75 });
+
+      if (guestSnail && Math.hypot(x - guestSnail.x, y - guestSnail.y) < 32) {
+        pearls += 5;
+        triggerVKTaptic('light');
+        playSound('chime');
+        spawnParticles(guestSnail.x, guestSnail.y, 'heart', 6);
+        updateHUD('pearl');
+        saveGameProgress();
+        return;
+      }
+
+      for (let i = algaeSpots.length - 1; i >= 0; i--) {
+        const spot = algaeSpots[i];
+        if (Math.hypot(x - spot.x, y - spot.y) < spot.r + 18) {
+          algaeSpots.splice(i, 1);
+          waterClarity = Math.min(100, waterClarity + 4);
+          pearls += 3;
+          triggerVKTaptic('light');
+          playSound('bubble');
+          spawnParticles(spot.x, spot.y, 'sparkle', 6);
+          updateHUD('pearl');
+          saveGameProgress();
+          return;
+        }
+      }
+
+      for (const item of decorCatalog) {
+        if (!item.placed) continue;
+        const dx = item.xRatio * canvas.width;
+        const dy = item.yRatio * canvas.height;
+        if (Math.hypot(x - dx, y - dy) < 34) {
+          draggingDecor = item;
+          triggerVKTaptic('light');
+          playSound('bubble');
+          if (item.id === 'pearl_clam') {
+            pearls += 2;
+            spawnParticles(dx, dy - 14, 'sparkle', 5);
+            updateHUD('pearl');
+          }
+          return;
+        }
+      }
+
+      if (interactionMode === 'tool2') {
+        const list = gameMood === 'chaos' ? chaosFoods : cozyFoods;
+        let fItem = list[selectedSubItem] || list[0];
+        if (pearls < fItem.cost) {
+          selectedSubItem = 0;
+          fItem = list[0];
+          setInteractionMode('tool2');
+        }
+        pearls -= fItem.cost;
+        updateHUD();
+        pellets.push({
+          x,
+          y: Math.max(24, y),
+          vy: gameMood === 'chaos' ? 0.95 : 0.6,
+          food: fItem,
+          wobble: Math.random() * 6
+        });
+        triggerVKTaptic('light');
+        playSound(gameMood === 'chaos' ? 'bass' : 'bubble');
+        if (fItem.chaosTag) checkChaosCombos(fItem.chaosTag);
+        return;
+      }
+
+      if (interactionMode === 'tool3' && gameMood === 'chaos') {
+        rainbowFoamTimer = 240;
+        waterClarity = 100;
+        algaeSpots.length = 0;
+        pearls += 4;
+        triggerVKTaptic('medium');
+        playSound('bubble');
+        for (let i = 0; i < 12; i++) {
+          bubbles.push({
+            x: x + (Math.random() - 0.5) * 50,
+            y: y + (Math.random() - 0.5) * 30,
+            r: 5 + Math.random() * 7,
+            vy: 1.8 + Math.random() * 1.8,
+            wobble: Math.random() * 6,
+            neonColor: ['#FF2E93', '#00F5D4', '#FEE440', '#9B5DE5'][i % 4]
+          });
+        }
+        updateHUD('pearl');
+        checkChaosCombos('foam');
+        return;
+      }
+
+      if (interactionMode === 'tool1' && gameMood === 'chaos') {
+        spawnChaosGadgetAt(selectedChaosGadget, x, y);
+        return;
+      }
+
+      for (const fish of fishes) {
+        const dist = Math.hypot(x - fish.x, y - fish.y);
+        if (dist < 42 * stageScales[fish.stage]) {
+          selectedFishId = fish.id;
+          petFish(fish);
+          return;
+        }
+      }
+
+      triggerVKTaptic('light');
+      playSound('bubble');
+      fishes.forEach((fish, idx) => {
+        fish.targetX = x + (idx - 1) * 30;
+        fish.targetY = y + (idx % 2 === 0 ? -15 : 15);
+      });
+    }
+
+    function handlePointerMove(x, y) {
+      if (draggingDecor) {
+        draggingDecor.xRatio = Math.max(0.10, Math.min(0.90, x / canvas.width));
+        draggingDecor.yRatio = Math.max(0.25, Math.min(0.90, y / canvas.height));
+        return;
+      }
+
+      if (interactionMode === 'tool3') {
+        for (let i = algaeSpots.length - 1; i >= 0; i--) {
+          const spot = algaeSpots[i];
+          if (Math.hypot(x - spot.x, y - spot.y) < spot.r + 24) {
+            algaeSpots.splice(i, 1);
+            waterClarity = Math.min(100, waterClarity + 4);
+            pearls += 3;
+            triggerVKTaptic('light');
+            playSound('bubble');
+            spawnParticles(spot.x, spot.y, 'sparkle', 5);
+            updateHUD('pearl');
+          }
+        }
+      }
+    }
+
+    function handlePointerUp() {
+      if (draggingDecor) {
+        draggingDecor = null;
+        saveGameProgress();
+      }
+    }
+
+    canvas.addEventListener('mousedown', e => {
+      const c = getCanvasCoords(e.clientX, e.clientY);
+      handlePointerDown(c.x, c.y);
+    });
+    canvas.addEventListener('mousemove', e => {
+      const c = getCanvasCoords(e.clientX, e.clientY);
+      handlePointerMove(c.x, c.y);
+    });
+    window.addEventListener('mouseup', handlePointerUp);
+
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (e.touches.length > 0) {
+        const c = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+        handlePointerDown(c.x, c.y);
+      }
+    }, { passive: false });
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      if (e.touches.length > 0) {
+        const c = getCanvasCoords(e.touches[0].clientX, e.touches[0].clientY);
+        handlePointerMove(c.x, c.y);
+      }
+    }, { passive: false });
+    canvas.addEventListener('touchend', e => {
+      e.preventDefault();
+      handlePointerUp();
+    }, { passive: false });
+
+    // =========================================================================
+    // 10. SIMULATION & RENDERING LOOP
+    // =========================================================================
+    let frameCount = 0;
+
+    function drawBackground(w, h) {
+      if (gameMood === 'cozy') {
+        const palettes = [
+          ['#B8F1F5', '#88DCE8', '#5AC0D4'],
+          ['#FFD6C9', '#F3B4C8', '#8B9FD9'],
+          ['#293261', '#1C244C', '#131938']
+        ];
+        const pal = palettes[lightingMode];
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, pal[0]);
+        grad.addColorStop(0.55, pal[1]);
+        grad.addColorStop(1, pal[2]);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.save();
+        for (let i = 0; i < 3; i++) {
+          const rayX = w * (0.22 + i * 0.28) + Math.sin(frameCount * 0.01 + i) * 14;
+          const rayGrad = ctx.createLinearGradient(rayX, 0, rayX + 45, h * 0.85);
+          rayGrad.addColorStop(0, 'rgba(255, 255, 255, 0.14)');
+          rayGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+          ctx.fillStyle = rayGrad;
+          ctx.beginPath();
+          ctx.moveTo(rayX - 26, 0);
+          ctx.lineTo(rayX + 34, 0);
+          ctx.lineTo(rayX + 90, h * 0.9);
+          ctx.lineTo(rayX - 10, h * 0.9);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      } else {
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, '#2B0945');
+        grad.addColorStop(0.5, '#190B33');
+        grad.addColorStop(1, '#0B041A');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.save();
+        const beamColors = ['rgba(255, 46, 147, 0.16)', 'rgba(0, 245, 212, 0.16)', 'rgba(254, 228, 64, 0.15)'];
+        for (let i = 0; i < 3; i++) {
+          const swing = Math.sin(frameCount * 0.045 + i * 2.1) * 95;
+          const originX = w * 0.5;
+          ctx.fillStyle = beamColors[i];
+          ctx.beginPath();
+          ctx.moveTo(originX - 12, 0);
+          ctx.lineTo(originX + 12, 0);
+          ctx.lineTo(originX + swing + 90, h);
+          ctx.lineTo(originX + swing - 90, h);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      const sandY = h * 0.84;
+      ctx.fillStyle = gameMood === 'chaos' ? '#39195C' : (lightingMode === 2 ? '#3B3359' : '#F9E4C8');
+      ctx.beginPath();
+      ctx.moveTo(0, sandY);
+      for (let x = 0; x <= w; x += 35) {
+        const yOff = Math.sin(x * 0.018 + 1.2) * 7;
+        ctx.lineTo(x, sandY + yOff);
+      }
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawDecorAndAnomalies(w, h) {
+      const beatBounce = (gameMood === 'chaos' && discoSubwoofer) ? Math.abs(Math.sin(frameCount * 0.25)) * 7 : 0;
+
+      decorCatalog.forEach(item => {
+        if (!item.placed) return;
+        const cx = item.xRatio * w;
+        const cy = item.yRatio * h - beatBounce;
+        ctx.save();
+        ctx.translate(cx, cy);
+
+        if (item.id === 'kelp_lush') {
+          const speed = gameMood === 'chaos' ? 0.12 : 0.03;
+          [-14, -4, 5, 14].forEach((offsetX, idx) => {
+            const bladeH = 66 + (idx % 2) * 20;
+            const sway = Math.sin(frameCount * speed + idx) * (gameMood === 'chaos' ? 18 : 10);
+            ctx.strokeStyle = gameMood === 'chaos' ? (idx % 2 === 0 ? '#00F5D4' : '#FF2E93') : (idx % 2 === 0 ? '#52C7A9' : '#7CE0C3');
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(offsetX, 10);
+            ctx.quadraticCurveTo(offsetX + sway * 0.6, 10 - bladeH * 0.5, offsetX + sway, 10 - bladeH);
+            ctx.stroke();
+          });
+        } else if (item.id === 'pearl_clam') {
+          const speed = gameMood === 'chaos' ? 0.18 : 0.025;
+          const openAngle = (Math.sin(frameCount * speed) + 1) * 0.22;
+          ctx.fillStyle = '#FFACC7';
+          ctx.beginPath();
+          ctx.ellipse(0, 6, 22, 11, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#FFFDF5';
+          ctx.beginPath();
+          ctx.arc(0, 0, 7, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.save();
+          ctx.translate(-18, 4);
+          ctx.rotate(-0.35 - openAngle);
+          ctx.fillStyle = '#FF8FB3';
+          ctx.beginPath();
+          ctx.ellipse(18, -5, 21, 10, 0, Math.PI, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        } else if (item.id === 'singing_coral') {
+          ctx.strokeStyle = gameMood === 'chaos' ? '#FEE440' : '#FF857A';
+          ctx.lineWidth = 9.5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(0, 10);
+          ctx.quadraticCurveTo(-23, -14, -12, -31);
+          ctx.quadraticCurveTo(0, -39, 0, -23);
+          ctx.moveTo(0, 10);
+          ctx.quadraticCurveTo(23, -14, 12, -31);
+          ctx.quadraticCurveTo(0, -39, 0, -23);
+          ctx.stroke();
+        } else if (item.id === 'cozy_jar') {
+          ctx.fillStyle = '#E8A57E';
+          ctx.beginPath();
+          ctx.ellipse(0, -4, 20, 16, 0.15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#5D455E';
+          ctx.beginPath();
+          ctx.ellipse(11, -4, 7.5, 9.5, 0.15, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (item.id === 'trick_ring') {
+          const bob = Math.sin(frameCount * 0.04) * 5;
+          ctx.strokeStyle = '#FFD166';
+          ctx.lineWidth = 4.5;
+          ctx.beginPath();
+          ctx.ellipse(0, bob, 19, 29, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        } else if (item.id === 'glow_jelly') {
+          const bob = Math.sin(frameCount * 0.05) * 7;
+          ctx.translate(0, bob);
+          ctx.fillStyle = 'rgba(210, 168, 255, 0.85)';
+          ctx.beginPath();
+          ctx.arc(0, -5, 16, Math.PI, 0);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      });
+
+      if (whirlpool) {
+        ctx.save();
+        ctx.translate(whirlpool.x, whirlpool.y);
+        ctx.rotate(frameCount * 0.18);
+        for (let r = 14; r <= 56; r += 14) {
+          ctx.strokeStyle = r % 28 === 0 ? 'rgba(0, 245, 212, 0.65)' : 'rgba(255, 46, 147, 0.65)';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(0, 0, r, 0, Math.PI * 1.45);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      if (discoSubwoofer) {
+        ctx.save();
+        const pulse = 1 + Math.sin(frameCount * 0.35) * 0.14;
+        ctx.translate(discoSubwoofer.x, discoSubwoofer.y);
+        ctx.scale(pulse, pulse);
+        ctx.fillStyle = '#2B194D';
+        ctx.strokeStyle = '#00F5D4';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.roundRect(-24, -20, 48, 40, 8);
+        ctx.fill();
+        ctx.stroke();
+        ctx.font = '22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🪩', 0, 0);
+        ctx.restore();
+      }
+
+      if (ufoVisitor) {
+        ctx.save();
+        ctx.translate(ufoVisitor.x, ufoVisitor.y);
+        const beamGrad = ctx.createLinearGradient(0, 10, 0, 190);
+        beamGrad.addColorStop(0, 'rgba(0, 245, 212, 0.42)');
+        beamGrad.addColorStop(1, 'rgba(0, 245, 212, 0)');
+        ctx.fillStyle = beamGrad;
+        ctx.beginPath();
+        ctx.moveTo(-14, 8);
+        ctx.lineTo(14, 8);
+        ctx.lineTo(52, 190);
+        ctx.lineTo(-52, 190);
+        ctx.closePath();
+        ctx.fill();
+        ctx.font = '30px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🛸', 0, 0);
+        ctx.restore();
+      }
+
+      if (rubberDuck) {
+        ctx.save();
+        ctx.translate(rubberDuck.x, rubberDuck.y + Math.sin(frameCount * 0.08) * 6);
+        ctx.font = '38px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🦆', 0, 0);
+        ctx.restore();
+      }
+    }
+
+    function drawExpressiveFish(fish) {
+      const scale = stageScales[fish.stage];
+      const dir = fish.vx >= 0 ? 1 : -1;
+      const tilt = Math.max(-0.4, Math.min(0.4, fish.vy * 0.14)) * dir;
+
+      ctx.save();
+      ctx.translate(fish.x, fish.y);
+
+      if (fish.zoomiesTimer > 0 || gameMood === 'chaos') {
+        ctx.shadowColor = gameMood === 'chaos' ? '#00F5D4' : fish.bodyColor;
+        ctx.shadowBlur = fish.zoomiesTimer > 0 ? 22 : 12;
+      }
+
+      let flipAngle = 0;
+      if (fish.flipTimer > 0) {
+        flipAngle = (fish.flipTimer / 45) * Math.PI * 2 * dir;
+      }
+      if (whirlpool && Math.hypot(fish.x - whirlpool.x, fish.y - whirlpool.y) < 75) {
+        flipAngle += frameCount * 0.22;
+      }
+
+      ctx.rotate(tilt + flipAngle);
+      ctx.scale(dir * scale, scale);
+
+      const tailSwing = Math.sin(fish.phase) * (fish.zoomiesTimer > 0 ? 11 : 6.5);
+      const tailLen = fish.isMainFemale ? -42 : -36;
+
+      ctx.fillStyle = fish.finColor;
+      ctx.beginPath();
+      ctx.moveTo(-17, 0);
+      ctx.quadraticCurveTo(-32, -16 + tailSwing * 0.5, tailLen, -14 + tailSwing);
+      ctx.quadraticCurveTo(-28, 0 + tailSwing * 0.3, tailLen, 14 + tailSwing);
+      ctx.quadraticCurveTo(-32, 16 + tailSwing * 0.5, -17, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = fish.finColor;
+      ctx.beginPath();
+      ctx.moveTo(-7, -11);
+      ctx.quadraticCurveTo(0, -23 + tailSwing * 0.25, 9, -10);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = fish.bodyColor;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 21, 14, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      ctx.fillStyle = fish.bellyColor;
+      ctx.beginPath();
+      ctx.ellipse(2, 5, 15, 7.5, 0, 0, Math.PI);
+      ctx.fill();
+
+      if (fish.stage === 2 || (gameMood === 'chaos' && fish.isMainFemale)) {
+        ctx.fillStyle = '#FFD166';
+        ctx.beginPath();
+        ctx.moveTo(3, -13);
+        ctx.lineTo(1, -21);
+        ctx.lineTo(5, -17);
+        ctx.lineTo(8, -23);
+        ctx.lineTo(11, -17);
+        ctx.lineTo(15, -21);
+        ctx.lineTo(13, -13);
+        ctx.closePath();
+        ctx.fill();
+      } else if (fish.isMainFemale) {
+        ctx.fillStyle = '#FFF0F5';
+        ctx.beginPath();
+        ctx.arc(6, -13, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FFD166';
+        ctx.beginPath();
+        ctx.arc(6, -13, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (gameMood === 'chaos') {
+        ctx.fillStyle = '#111111';
+        ctx.fillRect(6, -6, 11, 5);
+        ctx.fillRect(4, -5, 14, 2);
+        ctx.fillStyle = '#00F5D4';
+        ctx.fillRect(8, -5, 3, 2);
+        ctx.fillRect(13, -5, 3, 2);
+      } else {
+        const isBlinking = (frameCount + fish.id * 37) % 180 < 7;
+        if (isBlinking) {
+          ctx.strokeStyle = '#3B3047';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(8, -3);
+          ctx.lineTo(14, -3);
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = '#2E233A';
+          ctx.beginPath();
+          ctx.arc(11, -3, 3.4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.arc(12.1, -4.1, 1.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      ctx.fillStyle = 'rgba(255, 105, 135, 0.48)';
+      ctx.beginPath();
+      ctx.ellipse(8.5, 2.8, 3.5, 2.1, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#3B3047';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(15.5, 1.8, 2.8, 0.15, Math.PI * 0.75);
+      ctx.stroke();
+
+      ctx.restore();
+
+      if (fish.speechTimer > 0 && fish.speech) {
+        ctx.save();
+        ctx.font = '800 10.5px -apple-system, Nunito, sans-serif';
+        const textWidth = ctx.measureText(fish.speech).width;
+        const boxW = Math.min(canvas.width - 14, textWidth + 16);
+        const boxH = 23;
+        const bx = Math.max(7, Math.min(canvas.width - boxW - 7, fish.x - boxW / 2));
+        const by = Math.max(36, fish.y - 30 * scale - 24);
+
+        ctx.fillStyle = gameMood === 'chaos' ? 'rgba(28, 12, 54, 0.94)' : 'rgba(255, 255, 255, 0.93)';
+        ctx.strokeStyle = gameMood === 'chaos' ? '#00F5D4' : '#F2DFCE';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, boxW, boxH, 10);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = gameMood === 'chaos' ? '#FEE440' : '#463A52';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(fish.speech, bx + boxW / 2, by + boxH / 2 + 0.5);
+        ctx.restore();
+      }
+    }
+
+    function updateSimulation() {
+      frameCount++;
+      const w = canvas.width;
+      const h = canvas.height;
+      if (pairDuetTimer > 0) pairDuetTimer--;
+      if (rainbowFoamTimer > 0) rainbowFoamTimer--;
+
+      if (whirlpool) {
+        whirlpool.timer--;
+        if (whirlpool.timer <= 0) whirlpool = null;
+      }
+      if (discoSubwoofer) {
+        discoSubwoofer.timer--;
+        if (frameCount % 25 === 0) {
+          ripples.push({ x: discoSubwoofer.x, y: discoSubwoofer.y - 10, r: 6, alpha: 0.8 });
+        }
+        if (discoSubwoofer.timer <= 0) discoSubwoofer = null;
+      }
+      if (ufoVisitor) {
+        ufoVisitor.timer--;
+        ufoVisitor.x += Math.sin(frameCount * 0.04) * 1.6;
+        if (ufoVisitor.timer <= 0) ufoVisitor = null;
+      }
+      if (rubberDuck) {
+        rubberDuck.timer--;
+        rubberDuck.x += rubberDuck.vx;
+        if (rubberDuck.x < 35 || rubberDuck.x > w - 35) rubberDuck.vx *= -1;
+        if (rubberDuck.timer <= 0) rubberDuck = null;
+      }
+
+      for (let i = pellets.length - 1; i >= 0; i--) {
+        const p = pellets[i];
+        if (whirlpool) {
+          const dx = whirlpool.x - p.x;
+          const dy = whirlpool.y - p.y;
+          p.x += dx * 0.04 - dy * 0.05;
+          p.y += dy * 0.04 + dx * 0.05;
+        } else {
+          p.y += p.vy;
+          p.x += Math.sin(frameCount * 0.05 + p.wobble) * 0.35;
+        }
+        if (p.y > h * 0.89) pellets.splice(i, 1);
+      }
+
+      const m = getMainMale();
+      const f = getMainFemale();
+
+      fishes.forEach(fish => {
+        const speedMult = (fish.zoomiesTimer > 0 || gameMood === 'chaos') ? 1.85 : 1.0;
+        fish.phase += 0.14 * speedMult;
+        if (fish.flipTimer > 0) fish.flipTimer--;
+        if (fish.glowTimer > 0) fish.glowTimer--;
+        if (fish.zoomiesTimer > 0) fish.zoomiesTimer--;
+        if (fish.speechTimer > 0) fish.speechTimer--;
+        fish.behaviorTimer--;
+
+        if (fish.behaviorTimer <= 0 && pellets.length === 0) {
+          fish.behaviorTimer = 140 + Math.floor(Math.random() * 90);
+          if (fish.isMainMale && f) {
+            if (Math.random() < 0.65) {
+              fish.behaviorState = `Плывёт к ${f.name} ♥`;
+              fish.targetX = f.x - 28;
+              fish.targetY = f.y;
+            } else {
+              fish.behaviorState = 'Ищет вкусняшки в песке';
+              fish.targetX = 50 + Math.random() * (w - 100);
+              fish.targetY = h * 0.75;
+            }
+          } else if (fish.isMainFemale && m) {
+            const coral = decorCatalog.find(d => d.id === 'singing_coral' && d.placed);
+            if (coral && Math.random() < 0.55) {
+              fish.behaviorState = 'Кружится у коралла 🌸';
+              fish.targetX = coral.xRatio * w;
+              fish.targetY = coral.yRatio * h - 45;
+            } else {
+              fish.behaviorState = `Вальсирует с ${m.name}`;
+              fish.targetX = m.x + 28;
+              fish.targetY = m.y;
+            }
+          } else {
+            fish.behaviorState = gameMood === 'chaos' ? 'Турбо-дрифт по углам' : 'Играет в пузырьках';
+            fish.targetX = 45 + Math.random() * (w - 90);
+            fish.targetY = 55 + Math.random() * (h * 0.72 - 55);
+          }
+          if (fish.id === selectedFishId) renderFishStrip();
+        }
+
+        let nearestPellet = null;
+        let minDist = Infinity;
+        for (const p of pellets) {
+          const d = Math.hypot(p.x - fish.x, p.y - fish.y);
+          if (d < minDist) {
+            minDist = d;
+            nearestPellet = p;
+          }
+        }
+
+        if (nearestPellet) {
+          fish.targetX = nearestPellet.x;
+          fish.targetY = nearestPellet.y;
+
+          if (minDist < 26 * stageScales[fish.stage]) {
+            const fData = nearestPellet.food;
+            const idx = pellets.indexOf(nearestPellet);
+            if (idx !== -1) pellets.splice(idx, 1);
+
+            fish.hunger = Math.min(100, fish.hunger + fData.hunger);
+            fish.xp += fData.xp;
+            pearls += 4;
+            triggerVKTaptic('light');
+            playSound('chomp');
+            spawnParticles(fish.x, fish.y, 'sparkle', 6);
+
+            if (fData.chaosTag === 'espresso') {
+              fish.zoomiesTimer = 260;
+              fish.flipTimer = 55;
+              checkChaosCombos('espresso');
+            } else if (fData.cost >= 5 || fData.chaosTag) {
+              fish.flipTimer = 42;
+            }
+
+            if (fish.stage < 2 && fish.xp >= fish.maxXp) {
+              fish.xp = 0;
+              fish.stage += 1;
+              fish.love += 2;
+              hearts += 3;
+              pearls += 12;
+              fish.flipTimer = 60;
+              fish.glowTimer = 240;
+              fish.speech = `«УРА! Я выросла: ${stageNames[fish.stage]}! 🎉»`;
+              fish.speechTimer = 240;
+              triggerVKTaptic('heavy');
+              playSound('chime');
+              spawnParticles(fish.x, fish.y, 'heart', 12);
+              showToast(`🎉 ${fish.name} выросла до стадии «${stageNames[fish.stage]}» (+12 ✨)!`);
+            } else {
+              fish.speech = fData.emoji ? `«Ом-ном! ${fData.emoji} просто бомба!»` : '«Ням-ням! Очень вкусно~ 😋»';
+              fish.speechTimer = 110;
+            }
+
+            updateHUD('pearl');
+            renderFishStrip();
+            saveGameProgress();
+          }
+        }
+
+        if (whirlpool && Math.hypot(fish.x - whirlpool.x, fish.y - whirlpool.y) < 110) {
+          const dx = whirlpool.x - fish.x;
+          const dy = whirlpool.y - fish.y;
+          fish.vx = dx * 0.05 - dy * 0.09;
+          fish.vy = dy * 0.05 + dx * 0.09;
+        } else {
+          const dx = fish.targetX - fish.x;
+          const dy = fish.targetY - fish.y;
+          const dist = Math.hypot(dx, dy) || 1;
+          const speedLimit = (nearestPellet ? 2.5 : 1.3) * speedMult;
+          const desiredVx = (dx / dist) * Math.min(speedLimit, dist * 0.045);
+          const desiredVy = (dy / dist) * Math.min(speedLimit * 0.78, dist * 0.045);
+          fish.vx += (desiredVx - fish.vx) * 0.065;
+          fish.vy += (desiredVy - fish.vy) * 0.065;
+        }
+
+        fish.x = Math.max(28, Math.min(w - 28, fish.x + fish.vx));
+        fish.y = Math.max(42, Math.min(h * 0.82, fish.y + fish.vy));
+      });
+
+      for (let i = bubbles.length - 1; i >= 0; i--) {
+        const b = bubbles[i];
+        b.y -= b.vy;
+        b.x += Math.sin(frameCount * 0.06 + b.wobble) * 0.4;
+        if (b.y < -10) bubbles.splice(i, 1);
+      }
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const pt = particles[i];
+        pt.x += pt.vx;
+        pt.y += pt.vy;
+        pt.life -= 0.022;
+        if (pt.life <= 0) particles.splice(i, 1);
+      }
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        const rp = ripples[i];
+        rp.r += 1.6;
+        rp.alpha -= 0.026;
+        if (rp.alpha <= 0) ripples.splice(i, 1);
+      }
+      if (guestSnail) {
+        guestSnail.timer--;
+        guestSnail.y -= 0.1;
+        if (guestSnail.timer <= 0) guestSnail = null;
+      }
+    }
+
+    function renderAquarium() {
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      drawBackground(w, h);
+      drawDecorAndAnomalies(w, h);
+
+      const m = getMainMale();
+      const f = getMainFemale();
+      if (m && f && (Math.hypot(m.x - f.x, m.y - f.y) < 92 || pairDuetTimer > 0)) {
+        ctx.save();
+        ctx.strokeStyle = gameMood === 'chaos' ? 'rgba(0, 245, 212, 0.55)' : 'rgba(255, 135, 175, 0.45)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(m.x, m.y);
+        ctx.lineTo(f.x, f.y);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      pellets.forEach(p => {
+        if (p.food.emoji) {
+          ctx.save();
+          ctx.font = '20px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(p.food.emoji, p.x, p.y);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = p.food.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.food.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        }
+      });
+
+      fishes.forEach(fish => drawExpressiveFish(fish));
+
+      bubbles.forEach(b => {
+        ctx.strokeStyle = b.neonColor || 'rgba(255, 255, 255, 0.72)';
+        ctx.fillStyle = b.neonColor ? b.neonColor + '44' : 'rgba(255, 255, 255, 0.22)';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      });
+
+      algaeSpots.forEach(spot => {
+        const grad = ctx.createRadialGradient(spot.x, spot.y, 2, spot.x, spot.y, spot.r);
+        grad.addColorStop(0, 'rgba(122, 214, 165, 0.65)');
+        grad.addColorStop(1, 'rgba(122, 214, 165, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(spot.x, spot.y, spot.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      if (guestSnail) {
+        ctx.save();
+        ctx.font = '24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🐌', guestSnail.x, guestSnail.y);
+        ctx.restore();
+      }
+
+      particles.forEach(pt => {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, pt.life);
+        ctx.font = `${Math.round(pt.size)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(pt.type === 'heart' ? '💖' : '✨', pt.x, pt.y);
+        ctx.restore();
+      });
+
+      ripples.forEach(rp => {
+        ctx.strokeStyle = `rgba(255, 255, 255, ${rp.alpha})`;
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+        ctx.stroke();
+      });
+    }
+
+    function gameLoop() {
+      updateSimulation();
+      renderAquarium();
+      requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadGameProgress();
+      resizeCanvas();
+      syncTopPill();
+      renderFishStrip();
+      updateHUD();
+      document.getElementById('soundBtn').textContent = soundEnabled ? '🔊' : '🔇';
+      requestAnimationFrame(gameLoop);
+    });
+  </script>
+</body>
+</html>
